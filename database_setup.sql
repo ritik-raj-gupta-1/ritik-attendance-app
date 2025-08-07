@@ -11,7 +11,7 @@ DROP TABLE IF EXISTS students CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS daily_attendance_ips CASCADE;
 
--- Table for the single controller user (no password column here)
+-- Table for the single controller user (no password column here as it's hardcoded in app.py)
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -74,9 +74,9 @@ INSERT INTO users (username, role) VALUES
 
 -- Insert the single class data for BA - Anthropology
 -- Location: 23°49'44"N 78°46'30"E -> Decimal: 23.828889, 78.775000
--- Radius: 4435 meters
+-- Radius: 4000 meters (CHANGED FOR TESTING)
 INSERT INTO classes (class_name, controller_id, geofence_lat, geofence_lon, geofence_radius) VALUES
-('BA - Anthropology', (SELECT id FROM users WHERE username = 'controller'), 23.828889, 78.775000, 4435);
+('BA - Anthropology', (SELECT id FROM users WHERE username = 'controller'), 23.828889, 78.775000, 4000);
 
 -- Insert all BA student data (only BA students this time)
 INSERT INTO students (enrollment_no, name, batch) VALUES
@@ -99,7 +99,7 @@ INSERT INTO students (enrollment_no, name, batch) VALUES
 ('Y24120185', 'RAGINI GOUND', 'BA'),
 ('Y24120187', 'RAMPAL SINGH THAKUR', 'BA'),
 ('Y24120188', 'SHREYA THAKUR', 'BA'),
-('Y24120203', 'ABHISHEK YADAV', 'BA'),
+    ('Y24120203', 'ABHISHEK YADAV', 'BA'),
 ('Y24120204', 'ADITYA SINGH', 'BA'),
 ('Y24120205', 'AVINASH AHIRWAR', 'BA'),
 ('Y24120206', 'HARSH KHANGAR', 'BA'),

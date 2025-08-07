@@ -1,4 +1,4 @@
 Flask
 psycopg2-binary
 gunicorn
-werkzeug
+# boto3 is removed as we are no longer using AWS S3
