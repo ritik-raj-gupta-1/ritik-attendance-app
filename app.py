@@ -39,6 +39,7 @@ def controller_required(f):
 
 # Haversine formula for calculating distance between two lat/lon points
 def haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculates the distance between two points on Earth using the Haversine formula."""
     R = 6371000 # Radius of Earth in meters
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
@@ -70,6 +71,7 @@ def login():
             if conn:
                 cur = conn.cursor()
                 # Retrieve controller ID and role from DB (assuming 'controller' user exists)
+                # In a real app, you'd hash passwords and store them securely.
                 cur.execute("SELECT id, username, role FROM users WHERE username = %s AND role = 'controller'", (username,))
                 user_data = cur.fetchone()
                 cur.close()
@@ -706,9 +708,6 @@ def api_update_attendance_record():
     try:
         if is_present:
             # Insert if not exists, or do nothing if already present
-            # We also record the timestamp, latitude, longitude, and IP if available,
-            # but for manual edits, we can use current time and mark location/IP as N/A or default.
-            # For simplicity, we'll use current timestamp and null for location/IP for manual edits.
             cur.execute(
                 "INSERT INTO attendance_records (session_id, student_id, timestamp, latitude, longitude, ip_address) VALUES (%s, %s, %s, NULL, NULL, 'Manual_Edit')",
                 (session_id, student_id, datetime.now(timezone.utc))

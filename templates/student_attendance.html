@@ -3,101 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Attendance</title>
+    <title>Mark Attendance</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        /* Add specific styles for status messages */
-        .status-message {
-            margin-top: 15px;
-            padding: 10px;
-            border-radius: 4px;
+        /* Specific styles for student attendance page */
+        .session-info {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .session-info p {
+            margin: 5px 0;
+            font-size: 1.1em;
+        }
+        .session-info strong {
+            color: #0056b3;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
             font-weight: bold;
-            display: none; /* Hidden by default, shown by JS */
         }
-        .status-message.info {
-            background-color: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
+        .form-group input[type="text"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 1em;
         }
-        .status-message.success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+        .student-name-display {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #0056b3; /* Default color */
         }
-        .status-message.warning {
-            background-color: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeeba;
-        }
-        .status-message.error { /* Using 'error' instead of 'danger' for JS messages for consistency */
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+        .button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>Attendance <span style="font-size: 0.7em;">by Ritik</span></h2> {# Title as requested #}
+            <h2>Mark Attendance (BA - Anthropology)</h2>
         </div>
-        <div class="dashboard-content">
-            {# Flash messages from Flask (for redirects) #}
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <ul class="flashes">
-                        {% for category, message in messages %}
-                            <li class="{{ category }}">{{ message }}</li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
-            {% endwith %}
+        
+        {# Global status message div for JavaScript #}
+        <div id="status-message" class="status-message"></div>
 
-            {% if active_session %}
-            <div class="session-card" style="background-color: #e0ffe0; padding: 15px; border-radius: 8px; border: 1px solid #90ee90;">
-                <h3>Class: {{ active_session.class_name }}</h3>
-                <p>Attendance will close in: <span id="timer-{{ active_session.id }}" style="font-weight: bold;">{{ active_session.remaining_time }}s</span></p>
-                <form id="attendance-form">
-                    <div class="input-group">
-                        <label for="enrollment_no">Enrollment Number:</label>
-                        <input type="text" id="enrollment_no" name="enrollment_no" required placeholder="e.g., Y24120127">
-                    </div>
-                    <div id="student-name-display" style="margin-top: 10px; font-weight: bold; color: #0056b3;"></div>
-                    <button type="submit" id="mark-btn" class="button">Mark Attendance</button>
-                </form>
-                <div id="status-message" class="status-message"></div> {# This is the new div for JS messages #}
-            </div>
-            {% else %}
-            <div class="info-message">
-                No active attendance session for BA - Anthropology at this time. Please check back later.
-            </div>
-            {% endif %}
-        </div>
-    </div>
-    <script src="{{ url_for('static', filename='main.js') }}"></script>
-    <script>
-        // Countdown timer for student view
         {% if active_session %}
-        var remainingTimeStudent = {{ active_session.remaining_time }};
-        var timerDisplayStudent = document.getElementById("timer-{{ active_session.id }}");
-
-        if (remainingTimeStudent > 0) {
-            var studentTimer = setInterval(function() {
-                var minutes = Math.floor(remainingTimeStudent / 60);
-                var seconds = remainingTimeStudent % 60;
-                timerDisplayStudent.innerHTML = minutes + "m " + seconds + "s";
-
-                if (remainingTimeStudent <= 0) {
-                    clearInterval(studentTimer);
-                    timerDisplayStudent.innerHTML = "Session ended.";
-                    window.location.reload(); // Reload to show session ended
-                }
-                remainingTimeStudent--;
-            }, 1000);
-        } else {
-            timerDisplayStudent.innerHTML = "Session ended.";
-        }
+            <div class="session-info">
+                <p>Active Session for: <strong>{{ active_session.class_name }}</strong></p>
+                <p>Time Remaining: <span id="timer-student" style="font-weight: bold;">{{ active_session.remaining_time }}s</span></p>
+                <p>Session ID: <strong>{{ active_session.id }}</strong></p>
+            </div>
+        {% else %}
+            <div class="info-message">
+                No active attendance session for BA - Anthropology. Please check back later.
+            </div>
         {% endif %}
+
+        <form id="attendance-form" class="attendance-form">
+            <div class="form-group">
+                <label for="enrollment_no">Enrollment Number:</label>
+                <input type="text" id="enrollment_no" name="enrollment_no" required placeholder="e.g., Y24120123">
+                <div id="student-name-display" class="student-name-display"></div>
+            </div>
+            <button type="submit" id="mark-btn" class="button" {% if not active_session %}disabled{% endif %}>Mark Attendance</button>
+        </form>
+    </div>
+    <script>
+        // Pass active_session data for student page timer and session ID
+        window.activeSessionDataStudent = {{ active_session | tojson | default('{}', true) }};
     </script>
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>

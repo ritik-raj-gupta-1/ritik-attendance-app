@@ -40,7 +40,7 @@
         .status-absent { color: red; font-weight: bold; }
         .status-holiday { color: orange; font-weight: bold; }
 
-        /* Styles for the delete button */
+        /* Styles for the delete button (simple and solid) */
         .delete-day-btn {
             background-color: #dc3545; /* Red */
             color: white;
@@ -50,9 +50,10 @@
             cursor: pointer;
             font-size: 0.8em;
             margin-left: 10px;
+            transition: background-color 0.2s ease; /* Subtle transition */
         }
         .delete-day-btn:hover {
-            background-color: #c82333;
+            background-color: #c82333; /* Darker red on hover */
         }
     </style>
 </head>
@@ -63,6 +64,7 @@
             <a href="{{ url_for('controller_dashboard') }}" class="back-link button">Back to Dashboard</a>
         </div>
         
+        {# Flash messages from Flask #}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <ul class="flashes">
@@ -72,6 +74,9 @@
                 </ul>
             {% endif %}
         {% endwith %}
+
+        {# Global status message div for JavaScript #}
+        <div id="status-message" class="status-message"></div>
 
         <div class="dashboard-content">
             <p>This report shows daily attendance for all BA - Anthropology students.</p>
@@ -116,7 +121,7 @@
             {% endif %}
         </div>
     </div>
-    {# Custom Confirmation Modal Structure is now in admin_dashboard.html, main.js will find it #}
+    {# Custom Confirmation Modal Structure is in admin_dashboard.html, main.js will find it #}
     <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>

@@ -2,71 +2,88 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOMContentLoaded fired: main.js loaded');
 
+    // Get common elements
     const attendanceForm = document.getElementById('attendance-form');
     const enrollmentNoInput = document.getElementById('enrollment_no');
     const studentNameDisplay = document.getElementById('student-name-display');
     const markBtn = document.getElementById('mark-btn');
-    // Use a more general status message div that can be present on all pages
-    const statusMessageDiv = document.getElementById('status-message') || document.createElement('div');
-    if (!document.getElementById('status-message')) {
-        statusMessageDiv.id = 'status-message';
-        document.body.appendChild(statusMessageDiv); // Append to body if not found (e.g., student attendance page)
-        statusMessageDiv.style.position = 'fixed';
-        statusMessageDiv.style.top = '20px';
-        statusMessageDiv.style.left = '50%';
-        statusMessageDiv.style.transform = 'translateX(-50%)';
-        statusMessageDiv.style.zIndex = '1001';
-        statusMessageDiv.style.minWidth = '300px';
-        statusMessageDiv.style.textAlign = 'center';
-        statusMessageDiv.style.display = 'none'; // Hide by default
-    }
+    
+    // Global status message div (present on admin_dashboard, attendance_report, edit_attendance, student_attendance)
+    const statusMessageDiv = document.getElementById('status-message');
 
-    // Custom Confirmation Modal Elements (should be present in admin_dashboard.html)
+    // Custom Confirmation Modal Elements (present in admin_dashboard.html)
     const confirmationModal = document.getElementById('confirmation-modal');
     const confirmMessage = document.getElementById('confirm-message');
     const confirmYesBtn = document.getElementById('confirm-yes');
     const confirmNoBtn = document.getElementById('confirm-no');
-    const modalCloseBtn = document.querySelector('#confirmation-modal .close-button'); // More specific selector
+    const modalCloseBtn = confirmationModal ? confirmationModal.querySelector('.close-button') : null;
 
-    let activeSessionId = null; // Store the active session ID
-    let pendingDeleteDate = null; // Store the date to be deleted for confirmation modal
+    let activeSessionId = null; // Stores the active session ID for student attendance
+    let pendingDeleteDate = null; // Stores the date to be deleted for confirmation modal
 
-    // Function to display a temporary status message
+    /**
+     * Displays a temporary status message to the user.
+     * @param {string} message - The message to display.
+     * @param {string} type - The type of message (e.g., 'info', 'success', 'warning', 'error').
+     */
     function showStatus(message, type) {
         if (statusMessageDiv) {
             statusMessageDiv.textContent = message;
-            statusMessageDiv.className = `status-message ${type}`; // Use CSS classes for styling
+            statusMessageDiv.className = `status-message ${type}`; // Apply CSS class for styling
             statusMessageDiv.style.display = 'block';
+            console.log(`Status (${type}): ${message}`); // Log status messages for debugging
             setTimeout(() => {
                 statusMessageDiv.style.display = 'none';
+                statusMessageDiv.textContent = ''; // Clear message after hiding
             }, 5000); // Hide after 5 seconds
+        } else {
+            console.warn('Status message div not found.');
         }
     }
 
-    // Function to show the custom confirmation modal
-    function showConfirmationModal(message, dateToDelete) {
+    /**
+     * Shows the custom confirmation modal.
+     * @param {string} message - The message to display in the modal.
+     * @param {string} dataToConfirm - Data associated with the confirmation (e.g., date for deletion).
+     */
+    function showConfirmationModal(message, dataToConfirm) {
         if (confirmationModal && confirmMessage) {
             confirmMessage.textContent = message;
-            pendingDeleteDate = dateToDelete; // Store the date for deletion
+            pendingDeleteDate = dataToConfirm; // Store the data
             confirmationModal.style.display = 'block';
-            console.log('Confirmation modal shown for date:', dateToDelete); // Debug log
+            console.log('Confirmation modal shown for:', dataToConfirm);
         } else {
             console.error('Confirmation modal elements not found!');
         }
     }
 
-    // Function to hide the custom confirmation modal
+    /**
+     * Hides the custom confirmation modal.
+     */
     function hideConfirmationModal() {
         if (confirmationModal) {
             confirmationModal.style.display = 'none';
-            pendingDeleteDate = null; // Clear pending date
-            console.log('Confirmation modal hidden.'); // Debug log
+            pendingDeleteDate = null; // Clear pending data
+            console.log('Confirmation modal hidden.');
         }
     }
 
-    // Modal close button
+    // Attach event listeners for the confirmation modal
     if (modalCloseBtn) {
         modalCloseBtn.onclick = hideConfirmationModal;
+    }
+    if (confirmNoBtn) {
+        confirmNoBtn.onclick = hideConfirmationModal;
+    }
+    if (confirmYesBtn) {
+        confirmYesBtn.onclick = async function() {
+            hideConfirmationModal();
+            if (pendingDeleteDate) {
+                console.log('Confirming action for:', pendingDeleteDate);
+                // This is specifically for daily attendance deletion
+                await deleteDailyAttendance(pendingDeleteDate);
+            }
+        };
     }
 
     // Click outside modal to close
@@ -76,25 +93,78 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    // Confirm Yes button handler
-    if (confirmYesBtn) {
-        confirmYesBtn.onclick = async function() {
-            hideConfirmationModal();
-            if (pendingDeleteDate) {
-                console.log('Confirming delete for date:', pendingDeleteDate); // Debug log
-                await deleteDailyAttendance(pendingDeleteDate);
+    // --- Controller Dashboard Logic ---
+
+    // Event listener for "End Session" button
+    document.querySelectorAll('.end-session-btn').forEach(button => {
+        button.addEventListener('click', async function(e) {
+            e.preventDefault(); // Prevent default form submission
+            const sessionId = this.dataset.sessionId;
+            
+            console.log('End Session button clicked for session:', sessionId);
+            showStatus('Ending session...', 'info');
+            try {
+                const response = await fetch(`/end_session/${sessionId}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showStatus(data.message, 'success');
+                    // Reload to update dashboard status after a short delay
+                    setTimeout(() => window.location.reload(), 1000); 
+                } else {
+                    showStatus(data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error ending session:', error);
+                showStatus('An error occurred while ending the session.', 'error');
             }
-        };
+        });
+    });
+
+    // Controller Dashboard Timer Logic
+    // This runs only if window.activeSessionData is available (from admin_dashboard.html)
+    if (typeof window.activeSessionData !== 'undefined' && window.activeSessionData && window.activeSessionData.id) {
+        console.log('Active session data found for dashboard timer.');
+        let remainingTimeController = window.activeSessionData.remaining_time;
+        let timerDisplayController = document.getElementById(`timer-${window.activeSessionData.id}`);
+
+        if (timerDisplayController && remainingTimeController > 0) {
+            let controllerTimer = setInterval(function() {
+                let minutes = Math.floor(remainingTimeController / 60);
+                let seconds = remainingTimeController % 60;
+                timerDisplayController.innerHTML = `${minutes}m ${seconds}s`;
+
+                if (remainingTimeController <= 0) {
+                    clearInterval(controllerTimer);
+                    timerDisplayController.innerHTML = "Session ended.";
+                    window.location.reload(); // Reload to update dashboard status
+                }
+                remainingTimeController--;
+            }, 1000);
+        } else if (timerDisplayController) {
+            timerDisplayController.innerHTML = "Session ended.";
+        }
     }
 
-    // Confirm No button handler
-    if (confirmNoBtn) {
-        confirmNoBtn.onclick = hideConfirmationModal;
-    }
+    // --- Attendance Report Page Logic ---
 
-    // Function to delete daily attendance
+    // Event listener for "Delete Day" buttons in the attendance report table
+    // This listener is on document.body because buttons are dynamically loaded
+    document.body.addEventListener('click', function(event) {
+        if (event.target && event.target.classList.contains('delete-day-btn')) {
+            const dateToDelete = event.target.dataset.date;
+            console.log('Delete Day button clicked for date:', dateToDelete);
+            showConfirmationModal(`Are you sure you want to delete all attendance records for ${dateToDelete}? This action cannot be undone.`, dateToDelete);
+        }
+    });
+
+    /**
+     * Sends an AJAX request to delete all attendance records for a specific date.
+     * @param {string} date - The date (YYYY-MM-DD) for which to delete attendance.
+     */
     async function deleteDailyAttendance(date) {
-        showStatus('Deleting attendance for ' + date + '...', 'info');
+        showStatus(`Deleting attendance for ${date}...`, 'info');
         try {
             const response = await fetch('/delete_daily_attendance', {
                 method: 'POST',
@@ -107,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (data.success) {
                 showStatus(data.message, 'success');
-                // Reload the page or update the table to reflect the deletion
+                // Reload the page to reflect the deletion
                 setTimeout(() => window.location.reload(), 1000); 
             } else {
                 showStatus(data.message, 'error');
@@ -118,49 +188,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Event listener for delete buttons in the attendance report table
-    // This listener needs to be on document.body because the buttons are dynamically loaded
-    document.body.addEventListener('click', function(event) {
-        if (event.target && event.target.classList.contains('delete-day-btn')) {
-            const dateToDelete = event.target.dataset.date;
-            console.log('Delete Day button clicked for date:', dateToDelete); // Debug log
-            showConfirmationModal(`Are you sure you want to delete all attendance records for ${dateToDelete}? This action cannot be undone.`, dateToDelete);
-        }
-    });
+    // --- Student Attendance Page Logic ---
 
-    // Function to handle ending an attendance session (for controller dashboard)
-    // This is now directly called by the button in admin_dashboard.html
-    document.querySelectorAll('.end-session-btn').forEach(button => {
-        button.addEventListener('click', async function(e) {
-            e.preventDefault(); // Prevent default form submission
-            const sessionId = this.dataset.sessionId; // Get session ID from data attribute
-            
-            console.log('End Session button clicked for session:', sessionId); // Debug log
-            showStatus('Ending session...', 'info');
-            try {
-                const response = await fetch(`/end_session/${sessionId}`, {
-                    method: 'POST'
-                });
-                const data = await response.json();
-                if (data.success) {
-                    showStatus(data.message, 'success');
-                    window.location.reload(); // Reload to show updated session status
-                } else {
-                    showStatus(data.message, 'error');
-                }
-            } catch (error) {
-                console.error('Error ending session:', error);
-                showStatus('An error occurred while ending the session.', 'error');
-            }
-        });
-    });
-
-
-    // Function to fetch active BA session ID (for student attendance page)
+    // Function to fetch active BA session ID for the student attendance page
     async function fetchActiveBASession() {
-        // Only run this on the student attendance page
+        // Only run this on the student attendance page if the form exists
         if (!attendanceForm) return; 
-        console.log('Fetching active BA session for student page...'); // Debug log
+        console.log('Fetching active BA session for student page...');
 
         try {
             const response = await fetch('/api/get_active_ba_session');
@@ -169,11 +203,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 activeSessionId = data.session_id;
                 if (markBtn) markBtn.disabled = false; // Enable button if session is active
                 showStatus('', 'info'); // Clear any previous status
-                console.log('Active session found:', activeSessionId); // Debug log
+                console.log('Active session found:', activeSessionId);
             } else {
                 if (markBtn) markBtn.disabled = true;
                 showStatus(data.message || 'No active BA attendance session found.', 'error');
-                console.log('No active session found:', data.message); // Debug log
+                console.log('No active session found:', data.message);
             }
         } catch (error) {
             console.error('Error fetching active BA session:', error);
@@ -185,25 +219,51 @@ document.addEventListener('DOMContentLoaded', function() {
     // Call this on page load to check for active sessions (only for student page)
     if (attendanceForm) {
         fetchActiveBASession();
+
+        // Student page timer logic
+        if (typeof window.activeSessionDataStudent !== 'undefined' && window.activeSessionDataStudent && window.activeSessionDataStudent.id) {
+            console.log('Active session data found for student page timer.');
+            let remainingTimeStudent = window.activeSessionDataStudent.remaining_time;
+            let timerDisplayStudent = document.getElementById('timer-student');
+
+            if (timerDisplayStudent && remainingTimeStudent > 0) {
+                let studentTimer = setInterval(function() {
+                    let minutes = Math.floor(remainingTimeStudent / 60);
+                    let seconds = remainingTimeStudent % 60;
+                    timerDisplayStudent.innerHTML = `${minutes}m ${seconds}s`;
+
+                    if (remainingTimeStudent <= 0) {
+                        clearInterval(studentTimer);
+                        timerDisplayStudent.innerHTML = "Session ended.";
+                        // Optionally disable mark button if session ends
+                        if (markBtn) markBtn.disabled = true;
+                        showStatus('The attendance session has ended.', 'warning');
+                    }
+                    remainingTimeStudent--;
+                }, 1000);
+            } else if (timerDisplayStudent) {
+                timerDisplayStudent.innerHTML = "No active session.";
+            }
+        }
     }
 
-    // Event listener for enrollment number input to display student name (for student attendance page)
+    // Event listener for enrollment number input to display student name (student page)
     if (enrollmentNoInput) {
         enrollmentNoInput.addEventListener('input', async function() {
             const enrollmentNo = this.value.trim();
             if (enrollmentNo.length >= 5) { // Fetch name after a few characters
-                console.log('Fetching student name for enrollment:', enrollmentNo); // Debug log
+                console.log('Fetching student name for enrollment:', enrollmentNo);
                 try {
                     const response = await fetch(`/api/get_student_name/${enrollmentNo}`);
                     const data = await response.json();
                     if (data.success && data.name) {
                         studentNameDisplay.textContent = `Name: ${data.name}`;
                         studentNameDisplay.style.color = '#0056b3';
-                        console.log('Student name found:', data.name); // Debug log
+                        console.log('Student name found:', data.name);
                     } else {
                         studentNameDisplay.textContent = data.message || 'Student not found.';
                         studentNameDisplay.style.color = '#dc3545';
-                        console.log('Student name not found:', data.message); // Debug log
+                        console.log('Student name not found:', data.message);
                     }
                 } catch (error) {
                     console.error('Error fetching student name:', error);
@@ -216,11 +276,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Event listener for attendance form submission (for student attendance page)
+    // Event listener for attendance form submission (student page)
     if (attendanceForm) {
         attendanceForm.addEventListener('submit', async function(e) {
             e.preventDefault();
-            console.log('Attendance form submitted.'); // Debug log
+            console.log('Attendance form submitted.');
 
             const enrollmentNo = enrollmentNoInput.value.trim();
             
@@ -229,17 +289,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Step 1: Get user's geolocation
             showStatus('Fetching your location...', 'info');
-            console.log('Requesting geolocation...'); // Debug log
+            console.log('Requesting geolocation...');
 
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     async position => {
                         const { latitude, longitude } = position.coords;
-                        console.log(`Geolocation obtained: Lat ${latitude}, Lon ${longitude}`); // Debug log
+                        console.log(`Geolocation obtained: Lat ${latitude}, Lon ${longitude}`);
                         
-                        // Step 2: Submit attendance to the server
                         showStatus('Location fetched. Submitting attendance...', 'info');
                         
                         try {
@@ -255,15 +313,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                     longitude: longitude
                                 })
                             });
-                            const data = await response.json(); // Expect JSON response
-                            console.log('Attendance submission response:', data); // Debug log
+                            const data = await response.json();
+                            console.log('Attendance submission response:', data);
 
                             if (data.success) {
-                                showStatus(data.message, data.category); // e.g., "Attendance marked successfully!", "success"
+                                showStatus(data.message, data.category);
                                 enrollmentNoInput.value = ''; // Clear input on success
                                 studentNameDisplay.textContent = ''; // Clear name display
                             } else {
-                                showStatus(data.message, data.category); // e.g., "Not on location!", "error"
+                                showStatus(data.message, data.category);
                             }
                         } catch (error) {
                             console.error('Error submitting attendance:', error);
@@ -291,14 +349,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- Edit Attendance Page Logic (for controller) ---
-    // Correctly target the table by its ID 'attendance-table' as defined in edit_attendance.html
+    // Target the table by its ID 'attendance-table' as defined in edit_attendance.html
     const editAttendanceTable = document.getElementById('attendance-table'); 
     if (editAttendanceTable) {
-        console.log('Edit Attendance page detected. Initializing...'); // Debug log
-        const sessionId = editAttendanceTable.dataset.sessionId; // This data-sessionId is set in the HTML
+        console.log('Edit Attendance page detected. Initializing...');
+        const sessionId = editAttendanceTable.dataset.sessionId; // Get session ID from data attribute
         fetchStudentsForEdit(sessionId);
     }
 
+    /**
+     * Fetches student data for a specific session and populates the edit attendance table.
+     * @param {string} sessionId - The ID of the session to fetch students for.
+     */
     async function fetchStudentsForEdit(sessionId) {
         const loadingMessage = document.getElementById('loading-message');
         const errorMessage = document.getElementById('error-message');
@@ -306,13 +368,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (loadingMessage) loadingMessage.style.display = 'block';
         if (errorMessage) errorMessage.style.display = 'none';
-        tbody.innerHTML = ''; // Clear existing rows
-        console.log('Fetching students for session:', sessionId); // Debug log
+        tbody.innerHTML = '<tr><td colspan="3">Loading students...</td></tr>'; // Show loading in table
+        console.log('Fetching students for session:', sessionId);
 
         try {
-            console.log('Attempting fetch to /api/get_session_students_for_edit/' + sessionId); // New debug log
+            console.log('Attempting fetch to /api/get_session_students_for_edit/' + sessionId);
             const response = await fetch(`/api/get_session_students_for_edit/${sessionId}`);
-            console.log('Fetch response received:', response); // New debug log
+            console.log('Fetch response received:', response);
 
             if (!response.ok) { // Check if response status is 2xx
                 const errorText = await response.text();
@@ -322,11 +384,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     errorMessage.textContent = `Error fetching data: ${response.status} - ${errorText.substring(0, 100)}`;
                     errorMessage.style.display = 'block';
                 }
+                tbody.innerHTML = '<tr><td colspan="3">Failed to load students.</td></tr>'; // Update table on fetch error
                 return;
             }
 
             const data = await response.json();
-            console.log('Students for edit fetched (parsed JSON):', data); // Debug log
+            console.log('Students for edit fetched (parsed JSON):', data);
 
             if (loadingMessage) loadingMessage.style.display = 'none';
 
@@ -336,6 +399,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     errorMessage.textContent = data.message || "Could not load students for editing.";
                     errorMessage.style.display = 'block';
                 }
+                tbody.innerHTML = '<tr><td colspan="3">Error: ' + (data.message || 'Could not load students.') + '</td></tr>'; // Update table on backend error
                 return;
             }
 
@@ -344,6 +408,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
+            tbody.innerHTML = ''; // Clear loading message before populating
             data.forEach(student => {
                 const row = tbody.insertRow();
                 row.innerHTML = `
@@ -360,25 +425,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 checkbox.addEventListener('change', async function() {
                     const studentId = this.dataset.studentId;
                     const isPresent = this.checked;
-                    console.log(`Checkbox changed for student ${studentId}: isPresent = ${isPresent}`); // Debug log
+                    console.log(`Checkbox changed for student ${studentId}: isPresent = ${isPresent}`);
                     await updateAttendanceRecord(sessionId, studentId, isPresent, this); // Pass checkbox for revert
                 });
             });
 
         } catch (error) {
-            console.error('Error fetching students for edit (catch block):', error); // Debug log
+            console.error('Error fetching students for edit (catch block):', error);
             if (loadingMessage) loadingMessage.style.display = 'none';
             if (errorMessage) {
                 errorMessage.textContent = 'Failed to load student data: ' + error.message;
                 errorMessage.style.display = 'block';
             }
+            tbody.innerHTML = '<tr><td colspan="3">An unexpected error occurred.</td></tr>'; // Update table on JS error
         }
     }
 
+    /**
+     * Sends an AJAX request to update a single attendance record.
+     * @param {string} sessionId - The ID of the session.
+     * @param {string} studentId - The ID of the student.
+     * @param {boolean} isPresent - True if marking present, false if marking absent.
+     * @param {HTMLElement} checkboxElement - The checkbox element to revert its state on failure.
+     */
     async function updateAttendanceRecord(sessionId, studentId, isPresent, checkboxElement) {
-        const updateStatus = document.getElementById('status-message'); // Use the global status message div
-        if (updateStatus) showStatus('Updating attendance...', 'info');
-        console.log(`Updating attendance record for session ${sessionId}, student ${studentId}, present: ${isPresent}`); // Debug log
+        showStatus('Updating attendance...', 'info');
+        console.log(`Updating attendance record for session ${sessionId}, student ${studentId}, present: ${isPresent}`);
 
         try {
             const response = await fetch('/api/update_attendance_record', {
@@ -393,47 +465,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             });
             const data = await response.json();
-            console.log('Update attendance response:', data); // Debug log
+            console.log('Update attendance response:', data);
 
             if (data.success) {
-                if (updateStatus) showStatus(data.message, 'success');
+                showStatus(data.message, 'success');
             } else {
-                if (updateStatus) showStatus(data.message, 'error');
+                showStatus(data.message, 'error');
                 if (checkboxElement) {
                     checkboxElement.checked = !isPresent; // Revert checkbox state on failure
                 }
             }
         } catch (error) {
             console.error('Error updating attendance record:', error);
-            if (updateStatus) showStatus('An error occurred while updating the record.', 'error');
+            showStatus('An error occurred while updating the record.', 'error');
             if (checkboxElement) {
                 checkboxElement.checked = !isPresent; // Revert checkbox state on error
             }
-        }
-    }
-
-    // --- Controller Dashboard Timer Logic ---
-    // This runs only if window.activeSessionData is available (from admin_dashboard.html)
-    if (window.activeSessionData && window.activeSessionData.id) {
-        console.log('Active session data found for dashboard timer.'); // Debug log
-        let remainingTimeController = window.activeSessionData.remaining_time;
-        let timerDisplayController = document.getElementById(`timer-${window.activeSessionData.id}`);
-
-        if (timerDisplayController && remainingTimeController > 0) {
-            let controllerTimer = setInterval(function() {
-                let minutes = Math.floor(remainingTimeController / 60);
-                let seconds = remainingTimeController % 60;
-                timerDisplayController.innerHTML = minutes + "m " + seconds + "s";
-
-                if (remainingTimeController <= 0) {
-                    clearInterval(controllerTimer);
-                    timerDisplayController.innerHTML = "Session ended.";
-                    window.location.reload(); // Reload to update dashboard status
-                }
-                remainingTimeController--;
-            }, 1000);
-        } else if (timerDisplayController) {
-            timerDisplayController.innerHTML = "Session ended.";
         }
     }
 });
