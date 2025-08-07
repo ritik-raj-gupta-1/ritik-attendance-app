@@ -165,6 +165,7 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     async function deleteDailyAttendance(date) {
         showStatus(`Deleting attendance for ${date}...`, 'info');
+        console.log(`Attempting to delete attendance for date: ${date}`);
         try {
             const response = await fetch('/delete_daily_attendance', {
                 method: 'POST',
@@ -173,7 +174,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: JSON.stringify({ date: date })
             });
+            
+            console.log('Fetch response received:', response);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('HTTP error! Status:', response.status, 'Response text:', errorText);
+                showStatus(`Error: ${response.status} - ${errorText.substring(0, 100)}`, 'error');
+                return;
+            }
+
             const data = await response.json();
+            console.log('Delete attendance API response data:', data);
 
             if (data.success) {
                 showStatus(data.message, 'success');
@@ -183,8 +195,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 showStatus(data.message, 'error');
             }
         } catch (error) {
-            console.error('Error deleting daily attendance:', error);
-            showStatus('An error occurred during deletion. Please try again.', 'error');
+            console.error('Error during deleteDailyAttendance fetch:', error);
+            showStatus('An unexpected network error occurred during deletion. Please check your connection.', 'error');
         }
     }
 
