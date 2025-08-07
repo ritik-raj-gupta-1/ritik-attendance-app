@@ -135,13 +135,13 @@
                     <p>Started: {{ active_session.start_time }}</p>
                     <p>Ends: {{ active_session.end_time }}</p>
                     <p>Time Remaining: <span id="timer-{{ active_session.id }}" style="font-weight: bold;">{{ active_session.remaining_time }}s</span></p>
-                    <form action="{{ url_for('end_session', session_id=active_session.id) }}" method="post" style="display:inline;">
-                        <button type="submit" class="button end-session-btn" data-session-id="{{ active_session.id }}" style="background-color: #dc3545;">End Session</button>
-                    </form>
+                    {# Changed from form submission to a button triggering JS function #}
+                    <button type="button" class="button end-session-btn" data-session-id="{{ active_session.id }}" style="background-color: #dc3545;">End Session</button>
                     <a href="{{ url_for('edit_attendance', session_id=active_session.id) }}" class="button" style="background-color: #007bff;">Edit Attendance</a>
                 {% else %}
                     <p>No active session for BA - Anthropology.</p>
                     <form action="{{ url_for('start_session') }}" method="post">
+                        <input type="hidden" name="class_id" value="{{ ba_anthropology_class_id }}">
                         <button type="submit" class="button">Start New Session</button>
                     </form>
                 {% endif %}
@@ -153,7 +153,41 @@
                 <a href="{{ url_for('attendance_report') }}" class="button">View Daily Attendance Report</a>
             </div>
 
-            {# Custom Confirmation Modal Structure #}
+            <h3 style="margin-top: 30px;">Edit Past Sessions</h3>
+            {% if all_sessions %}
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Session ID</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for session in all_sessions %}
+                        <tr>
+                            <td>{{ session.id }}</td>
+                            <td>{{ session.start_time }}</td>
+                            <td>{{ session.end_time }}</td>
+                            <td>{{ "Active" if session.is_active else "Ended" }}</td>
+                            <td>
+                                <a href="{{ url_for('edit_attendance', session_id=session.id) }}" class="button" style="background-color: #007bff; padding: 5px 10px; font-size: 0.9em;">Edit Attendance</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="info-message">
+                No past sessions available to edit.
+            </div>
+            {% endif %}
+
+            {# Custom Confirmation Modal Structure - Moved here for global access by main.js #}
             <div id="confirmation-modal" class="modal">
                 <div class="modal-content">
                     <span class="close-button">&times;</span>
@@ -167,34 +201,10 @@
 
         </div>
     </div>
-    <script src="{{ url_for('static', filename='main.js') }}"></script>
+    {# Pass active_session data to JavaScript, ensuring it's always valid JSON #}
     <script>
-        // Countdown timer for controller dashboard
-        {% if active_session %}
-        var remainingTimeController = {{ active_session.remaining_time }};
-        var timerDisplayController = document.getElementById("timer-{{ active_session.id }}");
-
-        if (remainingTimeController > 0) {
-            var controllerTimer = setInterval(function() {
-                var minutes = Math.floor(remainingTimeController / 60);
-                var seconds = remainingTimeController % 60;
-                timerDisplayController.innerHTML = minutes + "m " + seconds + "s";
-
-                if (remainingTimeController <= 0) {
-                    clearInterval(controllerTimer);
-                    timerDisplayController.innerHTML = "Session ended.";
-                    window.location.reload(); // Reload to update dashboard status
-                }
-                remainingTimeController--;
-            }, 1000);
-        } else {
-            timerDisplayController.innerHTML = "Session ended.";
-        }
-        {% endif %}
-
-        // Handle End Session button click (using main.js for AJAX)
-        // The event listener for .end-session-btn is now in main.js
-        // and uses a data-session-id attribute.
+        window.activeSessionData = {{ active_session | tojson | default('{}', true) }};
     </script>
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>

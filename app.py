@@ -209,7 +209,7 @@ def start_session():
 
         session_token = secrets.token_hex(16) # Generate a secure random token
         start_time = datetime.now(timezone.utc)
-        end_time = start_time + timedelta(minutes=5) # Session lasts for 5 minutes (CHANGED HERE)
+        end_time = start_time + timedelta(minutes=5) # Session lasts for 5 minutes
 
         cur.execute(
             "INSERT INTO attendance_sessions (class_id, controller_id, session_token, start_time, end_time, is_active) VALUES (%s, %s, %s, %s, %s, TRUE)",
@@ -703,8 +703,11 @@ def api_update_attendance_record():
     try:
         if is_present:
             # Insert if not exists, or do nothing if already present
+            # We also record the timestamp, latitude, longitude, and IP if available,
+            # but for manual edits, we can use current time and mark location/IP as N/A or default.
+            # For simplicity, we'll use current timestamp and null for location/IP for manual edits.
             cur.execute(
-                "INSERT INTO attendance_records (session_id, student_id, timestamp, latitude, longitude, ip_address) VALUES (%s, %s, %s, NULL, NULL, 'Manual_Edit') ON CONFLICT (session_id, student_id) DO NOTHING",
+                "INSERT INTO attendance_records (session_id, student_id, timestamp, latitude, longitude, ip_address) VALUES (%s, %s, %s, NULL, NULL, 'Manual_Edit')",
                 (session_id, student_id, datetime.now(timezone.utc))
             )
         else:
