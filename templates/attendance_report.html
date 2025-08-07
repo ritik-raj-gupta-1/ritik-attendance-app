@@ -5,13 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Attendance Report</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .report-table-container {
+            overflow-x: auto; /* Allows horizontal scrolling for wide tables */
+            margin-top: 20px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center; /* Center align all content */
+            white-space: nowrap; /* Prevent wrapping in cells */
+        }
+        .data-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            position: sticky; /* Sticky header for horizontal scroll */
+            left: 0;
+            z-index: 1;
+        }
+        .data-table td.date-column {
+            background-color: #f2f2f2; /* Highlight date column */
+            font-weight: bold;
+            position: sticky; /* Sticky date column for horizontal scroll */
+            left: 0;
+            z-index: 1;
+        }
+        /* Specific colors for status */
+        .status-present { color: green; font-weight: bold; }
+        .status-absent { color: red; font-weight: bold; }
+        .status-holiday { color: orange; font-weight: bold; }
+
+        /* Styles for the delete button */
+        .delete-day-btn {
+            background-color: #dc3545; /* Red */
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+        .delete-day-btn:hover {
+            background-color: #c82333;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>Attendance Report (BA - Anthropology)</h2>
+            <h2>Daily Attendance Report (BA - Anthropology)</h2>
             <a href="{{ url_for('controller_dashboard') }}" class="back-link button">Back to Dashboard</a>
-            <a href="{{ url_for('export_attendance_csv') }}" class="button" style="background-color: #6c757d;">Export to CSV</a>
         </div>
         
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -25,34 +74,36 @@
         {% endwith %}
 
         <div class="dashboard-content">
-            {% if attendance_data %}
-            <div style="overflow-x: auto;"> {# Make table scrollable on small screens #}
+            <p>This report shows daily attendance for all BA - Anthropology students.</p>
+            <p>
+                <span style="color: green; font-weight: bold;">Present</span> | 
+                <span style="color: red; font-weight: bold;">Absent</span> | 
+                <span style="color: orange; font-weight: bold;">Holiday</span> (for weekends with no attendance)
+            </p>
+            <a href="{{ url_for('export_attendance_csv') }}" class="button" style="background-color: #6c757d; margin-bottom: 20px;">Export Daily Report to CSV</a>
+
+            {% if report_data %}
+            <div class="report-table-container">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Enrollment No</th>
-                            <th>Student Name</th>
-                            <th>Batch</th>
-                            <th>Class Name</th>
-                            <th>Session Start</th>
-                            <th>Marked Time</th>
-                            <th>Latitude</th>
-                            <th>Longitude</th>
-                            <th>IP Address</th>
+                            <th class="date-column">Date</th>
+                            {% for student in report_data[0].students %}
+                            <th>{{ student.name }}<br>({{ student.enrollment_no }})</th>
+                            {% endfor %}
+                            <th>Actions</th> {# New column for delete button #}
                         </tr>
                     </thead>
                     <tbody>
-                        {% for record in attendance_data %}
+                        {% for daily_entry in report_data %}
                         <tr>
-                            <td>{{ record.enrollment_no }}</td>
-                            <td>{{ record.student_name }}</td>
-                            <td>{{ record.student_batch }}</td>
-                            <td>{{ record.class_name }}</td>
-                            <td>{{ record.session_start_time }}</td>
-                            <td>{{ record.marked_time }}</td>
-                            <td>{{ record.latitude | default('N/A') }}</td>
-                            <td>{{ record.longitude | default('N/A') }}</td>
-                            <td>{{ record.ip_address | default('N/A') }}</td>
+                            <td class="date-column">{{ daily_entry.date }}</td>
+                            {% for student_status in daily_entry.students %}
+                            <td class="status-{{ student_status.status | lower }}">{{ student_status.status }}</td>
+                            {% endfor %}
+                            <td>
+                                <button class="delete-day-btn" data-date="{{ daily_entry.date }}">Delete Day</button>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -60,10 +111,22 @@
             </div>
             {% else %}
             <div class="info-message">
-                No attendance records found for BA - Anthropology.
+                No attendance data available yet for BA - Anthropology.
             </div>
             {% endif %}
         </div>
     </div>
+    {# Custom Confirmation Modal Structure (moved here to be accessible by main.js) #}
+    <div id="confirmation-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <p id="confirm-message"></p>
+            <div class="modal-buttons">
+                <button id="confirm-yes" class="confirm-yes">Yes, Delete</button>
+                <button id="confirm-no" class="confirm-no">No, Cancel</button>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>

@@ -5,13 +5,108 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controller Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Custom Modal Styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            padding-top: 60px;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto; /* 15% from the top and centered */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; /* Could be more or less, depending on screen size */
+            max-width: 500px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            position: relative;
+            text-align: center;
+        }
+
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            position: absolute;
+            top: 10px;
+            right: 15px;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .modal-buttons {
+            margin-top: 20px;
+        }
+
+        .modal-buttons button {
+            padding: 10px 20px;
+            margin: 0 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .modal-buttons .confirm-yes {
+            background-color: #dc3545; /* Red for destructive action */
+            color: white;
+        }
+
+        .modal-buttons .confirm-no {
+            background-color: #6c757d; /* Grey for cancel */
+            color: white;
+        }
+        .status-message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: none; /* Hidden by default, shown by JS */
+        }
+        .status-message.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .status-message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status-message.warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .status-message.error { /* Using 'error' instead of 'danger' for JS messages for consistency */
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h2>Controller Dashboard</h2>
-            <p>Welcome, {{ username }}</p>
-            <a href="{{ url_for('logout') }}" class="logout-link">Logout</a>
+            <p>Welcome, {{ username }}!</p>
+            <a href="{{ url_for('logout') }}" class="button logout-button">Logout</a>
         </div>
         
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -25,111 +120,105 @@
         {% endwith %}
 
         <div class="dashboard-content">
-            <h3>Attendance Session Control (BA - Anthropology)</h3>
-            {% if active_session %}
-            <div id="active-session-info" style="background-color: #e6f7ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #91d5ff;">
-                <h4>Active Session: {{ active_session.class_name }}</h4>
-                <p>Session ID: {{ active_session.id }}</p>
-                <p>Token: <strong>{{ active_session.session_token }}</strong></p>
-                <p>Started: {{ active_session.start_time }}</p>
-                <div id="timer" style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">Time remaining: <span id="time-remaining"></span></div>
-                <button onclick="endAttendance({{ active_session.id }})" class="button end-button" style="background-color: #dc3545;">End Session</button>
+            <div class="section-card">
+                <h3>Attendance Session Control (BA - Anthropology)</h3>
+                {% if active_session %}
+                    <p>Active Session (ID: {{ active_session.id }} | Token: <strong>{{ active_session.session_token }}</strong>)</p>
+                    <p>Started: {{ active_session.start_time }}</p>
+                    <p>Ends: {{ active_session.end_time }}</p>
+                    <p>Time Remaining: <span id="timer-{{ active_session.id }}" style="font-weight: bold;">{{ active_session.remaining_time }}s</span></p>
+                    <form action="{{ url_for('end_session', session_id=active_session.id) }}" method="post" style="display:inline;">
+                        <button type="submit" class="button end-session-btn" style="background-color: #dc3545;">End Session</button>
+                    </form>
+                {% else %}
+                    <p>No active session for BA - Anthropology.</p>
+                    <form action="{{ url_for('start_session') }}" method="post">
+                        <button type="submit" class="button">Start New Session</button>
+                    </form>
+                {% endif %}
             </div>
-            {% else %}
-            <div class="info-message" style="margin-bottom: 20px;">
-                No active attendance session for BA - Anthropology.
-            </div>
-            <form action="{{ url_for('start_session') }}" method="post">
-                <input type="hidden" name="class_id" value="{{ ba_anthropology_class_id }}"> {# Pass the class ID to the backend #}
-                <button type="submit" class="button">Start New Session (BA - Anthropology)</button>
-            </form>
-            {% endif %}
 
-            <h3 style="margin-top: 30px;">Reports & Data Management</h3>
-            <a href="{{ url_for('attendance_report') }}" class="button" style="background-color: #28a745;">View Attendance Report</a>
-            <a href="{{ url_for('export_attendance_csv') }}" class="button" style="background-color: #6c757d;">Export Attendance to CSV</a>
-            
-            <h3 style="margin-top: 30px;">Edit Past Sessions</h3>
-            {% if all_sessions %}
-            <div style="overflow-x: auto;">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Session ID</th>
-                            <th>Start Time</th>
-                            <th>End Time</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for session in all_sessions %}
-                        <tr>
-                            <td>{{ session.id }}</td>
-                            <td>{{ session.start_time }}</td>
-                            <td>{{ session.end_time }}</td>
-                            <td>{{ "Active" if session.is_active else "Ended" }}</td>
-                            <td>
-                                <a href="{{ url_for('edit_attendance', session_id=session.id) }}" class="button" style="background-color: #007bff; padding: 5px 10px; font-size: 0.9em;">Edit Attendance</a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="section-card">
+                <h3>Attendance Reports & Management</h3>
+                <p>View comprehensive attendance records and manage daily data.</p>
+                <a href="{{ url_for('attendance_report') }}" class="button">View Daily Attendance Report</a>
+                {# <a href="{{ url_for('add_class') }}" class="button">Add New Class</a> #}
+                {# <a href="{{ url_for('add_student') }}" class="button">Add New Student</a> #}
             </div>
-            {% else %}
-            <div class="info-message">
-                No past sessions available to edit.
+
+            {# Custom Confirmation Modal Structure #}
+            <div id="confirmation-modal" class="modal">
+                <div class="modal-content">
+                    <span class="close-button">&times;</span>
+                    <p id="confirm-message"></p>
+                    <div class="modal-buttons">
+                        <button id="confirm-yes" class="confirm-yes">Yes, Delete</button>
+                        <button id="confirm-no" class="confirm-no">No, Cancel</button>
+                    </div>
+                </div>
             </div>
-            {% endif %}
 
         </div>
     </div>
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
     <script>
-        // Function to handle ending an attendance session
-        function endAttendance(sessionId) {
-            if (confirm("Are you sure you want to end this attendance session?")) {
-                fetch(`/end_session/${sessionId}`, {
-                    method: 'POST'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert(data.message);
-                        window.location.reload(); // Reload to show updated session status
-                    } else {
-                        alert(data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('An error occurred while ending the session.');
-                });
-            }
-        }
-        
-        // --- Countdown Timer Logic ---
+        // Countdown timer for controller dashboard
         {% if active_session %}
-        var remainingTime = {{ remaining_time }};
-        var timerDisplay = document.getElementById("time-remaining");
+        var remainingTimeController = {{ active_session.remaining_time }};
+        var timerDisplayController = document.getElementById("timer-{{ active_session.id }}");
 
-        if (remainingTime > 0) {
-            var x = setInterval(function() {
-                var minutes = Math.floor(remainingTime / 60);
-                var seconds = remainingTime % 60;
-                timerDisplay.innerHTML = minutes + "m " + seconds + "s";
+        if (remainingTimeController > 0) {
+            var controllerTimer = setInterval(function() {
+                var minutes = Math.floor(remainingTimeController / 60);
+                var seconds = remainingTimeController % 60;
+                timerDisplayController.innerHTML = minutes + "m " + seconds + "s";
 
-                if (remainingTime <= 0) {
-                    clearInterval(x);
-                    timerDisplay.innerHTML = "Attendance session has ended.";
+                if (remainingTimeController <= 0) {
+                    clearInterval(controllerTimer);
+                    timerDisplayController.innerHTML = "Session ended.";
                     window.location.reload(); // Reload to update dashboard status
                 }
-                remainingTime--;
+                remainingTimeController--;
             }, 1000);
         } else {
-            timerDisplay.innerHTML = "Attendance session has ended.";
+            timerDisplayController.innerHTML = "Session ended.";
         }
         {% endif %}
+
+        // Handle End Session button click (if using JS for AJAX)
+        document.querySelectorAll('.end-session-btn').forEach(button => {
+            button.addEventListener('click', async function(e) {
+                e.preventDefault(); // Prevent default form submission
+                const form = this.closest('form');
+                const sessionId = form.action.split('/').pop(); // Extract session_id from action URL
+
+                // Show confirmation modal
+                showConfirmationModal(`Are you sure you want to end this attendance session (ID: ${sessionId})?`, null); // No date for session end
+                
+                // Override confirm-yes for session end
+                confirmYesBtn.onclick = async function() {
+                    hideConfirmationModal();
+                    try {
+                        const response = await fetch(form.action, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json' // Flask expects JSON for jsonify
+                            }
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                            alert(data.message); // Use alert for simplicity here, or custom message display
+                            window.location.reload(); // Reload to update dashboard
+                        } else {
+                            alert(data.message);
+                        }
+                    } catch (error) {
+                        console.error('Error ending session:', error);
+                        alert('An error occurred while ending the session.');
+                    }
+                };
+            });
+        });
     </script>
 </body>
 </html>

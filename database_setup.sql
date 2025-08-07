@@ -74,9 +74,9 @@ INSERT INTO users (username, role) VALUES
 
 -- Insert the single class data for BA - Anthropology
 -- Location: 23°49'44"N 78°46'30"E -> Decimal: 23.828889, 78.775000
--- Radius: 35 meters
+-- Radius: 4435 meters
 INSERT INTO classes (class_name, controller_id, geofence_lat, geofence_lon, geofence_radius) VALUES
-('BA - Anthropology', (SELECT id FROM users WHERE username = 'controller'), 23.828889, 78.775000, 35);
+('BA - Anthropology', (SELECT id FROM users WHERE username = 'controller'), 23.828889, 78.775000, 4435);
 
 -- Insert all BA student data (only BA students this time)
 INSERT INTO students (enrollment_no, name, batch) VALUES

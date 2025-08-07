@@ -4,9 +4,103 @@ document.addEventListener('DOMContentLoaded', function() {
     const enrollmentNoInput = document.getElementById('enrollment_no');
     const studentNameDisplay = document.getElementById('student-name-display');
     const markBtn = document.getElementById('mark-btn');
-    const statusMessage = document.getElementById('status-message'); // For general messages if needed
+    const statusMessageDiv = document.getElementById('status-message'); // This div will display feedback
+
+    // Custom Confirmation Modal Elements
+    const confirmationModal = document.getElementById('confirmation-modal');
+    const confirmMessage = document.getElementById('confirm-message');
+    const confirmYesBtn = document.getElementById('confirm-yes');
+    const confirmNoBtn = document.getElementById('confirm-no');
+    const modalCloseBtn = document.querySelector('.close-button');
 
     let activeSessionId = null; // Store the active session ID
+    let pendingDeleteDate = null; // Store the date to be deleted
+
+    // Function to display a temporary status message
+    function showStatus(message, type) {
+        if (statusMessageDiv) {
+            statusMessageDiv.textContent = message;
+            statusMessageDiv.className = `status-message ${type}`; // Use CSS classes for styling
+            statusMessageDiv.style.display = 'block';
+            setTimeout(() => {
+                statusMessageDiv.style.display = 'none';
+            }, 5000); // Hide after 5 seconds
+        }
+    }
+
+    // Function to show the custom confirmation modal
+    function showConfirmationModal(message, dateToDelete) {
+        confirmMessage.textContent = message;
+        pendingDeleteDate = dateToDelete; // Store the date for deletion
+        confirmationModal.style.display = 'block';
+    }
+
+    // Function to hide the custom confirmation modal
+    function hideConfirmationModal() {
+        confirmationModal.style.display = 'none';
+        pendingDeleteDate = null; // Clear pending date
+    }
+
+    // Modal close button
+    if (modalCloseBtn) {
+        modalCloseBtn.onclick = hideConfirmationModal;
+    }
+
+    // Click outside modal to close
+    window.onclick = function(event) {
+        if (event.target == confirmationModal) {
+            hideConfirmationModal();
+        }
+    };
+
+    // Confirm Yes button handler
+    if (confirmYesBtn) {
+        confirmYesBtn.onclick = async function() {
+            hideConfirmationModal();
+            if (pendingDeleteDate) {
+                await deleteDailyAttendance(pendingDeleteDate);
+            }
+        };
+    }
+
+    // Confirm No button handler
+    if (confirmNoBtn) {
+        confirmNoBtn.onclick = hideConfirmationModal;
+    }
+
+    // Function to delete daily attendance
+    async function deleteDailyAttendance(date) {
+        try {
+            const response = await fetch('/delete_daily_attendance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ date: date })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                showStatus(data.message, 'success');
+                // Reload the page or update the table to reflect the deletion
+                setTimeout(() => window.location.reload(), 1000); 
+            } else {
+                showStatus(data.message, 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting daily attendance:', error);
+            showStatus('An error occurred during deletion. Please try again.', 'error');
+        }
+    }
+
+    // Event listener for delete buttons in the attendance report table
+    document.body.addEventListener('click', function(event) {
+        if (event.target && event.target.classList.contains('delete-day-btn')) {
+            const dateToDelete = event.target.dataset.date;
+            showConfirmationModal(`Are you sure you want to delete all attendance records for ${dateToDelete}? This action cannot be undone.`, dateToDelete);
+        }
+    });
+
 
     // Function to fetch active BA session ID
     async function fetchActiveBASession() {
@@ -15,24 +109,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             if (data.success && data.session_id) {
                 activeSessionId = data.session_id;
-                markBtn.disabled = false; // Enable button if session is active
-                // Optionally update a visible session ID if you want to show it to students
-                // For now, we'll just enable the button.
-            } else {
-                // No active session, keep button disabled and show message
-                markBtn.disabled = true;
-                if (statusMessage) {
-                    statusMessage.textContent = data.message || 'No active BA attendance session found.';
-                    statusMessage.className = 'error-message';
+                if (markBtn) markBtn.disabled = false; // Enable button if session is active
+                if (statusMessageDiv) {
+                    statusMessageDiv.textContent = ''; // Clear any previous status
+                    statusMessageDiv.style.display = 'none';
                 }
+            } else {
+                if (markBtn) markBtn.disabled = true;
+                showStatus(data.message || 'No active BA attendance session found.', 'error');
             }
         } catch (error) {
             console.error('Error fetching active BA session:', error);
-            markBtn.disabled = true;
-            if (statusMessage) {
-                statusMessage.textContent = 'Failed to load attendance session. Please try again later.';
-                statusMessage.className = 'error-message';
-            }
+            if (markBtn) markBtn.disabled = true;
+            showStatus('Failed to load attendance session. Please try again later.', 'error');
         }
     }
 
@@ -67,60 +156,53 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Event listener for attendance form submission
     if (attendanceForm) {
-        attendanceForm.addEventListener('submit', function(e) {
+        attendanceForm.addEventListener('submit', async function(e) {
             e.preventDefault();
 
             const enrollmentNo = enrollmentNoInput.value.trim();
             
             if (!enrollmentNo || !activeSessionId) {
-                // Flash messages are handled by Flask after redirect, but for immediate feedback
-                if (statusMessage) {
-                    statusMessage.textContent = 'Please enter your enrollment number and ensure a session is active.';
-                    statusMessage.className = 'error-message';
-                }
+                showStatus('Please enter your enrollment number and ensure a session is active.', 'error');
                 return;
             }
 
             // Step 1: Get user's geolocation
-            if (statusMessage) {
-                statusMessage.textContent = 'Fetching your location...';
-                statusMessage.className = 'info-message';
-            }
+            showStatus('Fetching your location...', 'info');
 
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
-                    position => {
+                    async position => {
                         const { latitude, longitude } = position.coords;
                         
                         // Step 2: Submit attendance to the server
-                        if (statusMessage) {
-                            statusMessage.textContent = 'Location fetched. Submitting attendance...';
-                            statusMessage.className = 'info-message';
-                        }
+                        showStatus('Location fetched. Submitting attendance...', 'info');
                         
-                        fetch('/mark_attendance', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/x-www-form-urlencoded',
-                            },
-                            body: new URLSearchParams({
-                                enrollment_no: enrollmentNo,
-                                session_id: activeSessionId,
-                                latitude: latitude,
-                                longitude: longitude
-                            })
-                        })
-                        .then(response => {
-                            // Flask redirects, so we just reload the page to see flash messages
-                            window.location.reload(); 
-                        })
-                        .catch(error => {
-                            console.error('Error submitting attendance:', error);
-                            if (statusMessage) {
-                                statusMessage.textContent = 'An error occurred during submission. Please try again.';
-                                statusMessage.className = 'error-message';
+                        try {
+                            const response = await fetch('/mark_attendance', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                },
+                                body: new URLSearchParams({
+                                    enrollment_no: enrollmentNo,
+                                    session_id: activeSessionId,
+                                    latitude: latitude,
+                                    longitude: longitude
+                                })
+                            });
+                            const data = await response.json(); // Expect JSON response
+
+                            if (data.success) {
+                                showStatus(data.message, data.category); // e.g., "Attendance marked successfully!", "success"
+                                enrollmentNoInput.value = ''; // Clear input on success
+                                studentNameDisplay.textContent = ''; // Clear name display
+                            } else {
+                                showStatus(data.message, data.category); // e.g., "Not on location!", "error"
                             }
-                        });
+                        } catch (error) {
+                            console.error('Error submitting attendance:', error);
+                            showStatus('An unexpected error occurred during submission. Please try again.', 'error');
+                        }
                     },
                     error => {
                         console.error('Geolocation Error:', error);
@@ -132,18 +214,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         } else if (error.code === error.TIMEOUT) {
                             errorMessage = 'Fetching location timed out. Please try again.';
                         }
-                        if (statusMessage) {
-                            statusMessage.textContent = errorMessage;
-                            statusMessage.className = 'error-message';
-                        }
+                        showStatus(errorMessage, 'error');
                     },
                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 } // Geolocation options
                 );
             } else {
-                if (statusMessage) {
-                    statusMessage.textContent = 'Geolocation is not supported by your browser.';
-                    statusMessage.className = 'error-message';
-                }
+                showStatus('Geolocation is not supported by your browser.', 'error');
             }
         });
     }
