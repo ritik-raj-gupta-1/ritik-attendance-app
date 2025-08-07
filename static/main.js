@@ -325,9 +325,21 @@ document.addEventListener('DOMContentLoaded', function() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     async position => {
-                        const { latitude, longitude } = position.coords;
-                        console.log(`Geolocation obtained: Lat ${latitude}, Lon ${longitude}`);
+                        const { latitude, longitude, accuracy } = position.coords; // Get accuracy here!
+                        console.log(`Geolocation obtained: Lat ${latitude}, Lon ${longitude}, Accuracy: ${accuracy}m`);
                         
+                        let allowedRadius;
+                        if (accuracy <= 40) {
+                            allowedRadius = 40;
+                            console.log(`GPS signal: Good (Accuracy: ${accuracy}m). Using radius: ${allowedRadius}m`);
+                        } else if (accuracy > 40 && accuracy <= 60) {
+                            allowedRadius = 60;
+                            console.log(`GPS signal: Weak (Accuracy: ${accuracy}m). Using radius: ${allowedRadius}m`);
+                        } else { // accuracy > 60
+                            allowedRadius = 90;
+                            console.log(`GPS signal: Too Weak (Accuracy: ${accuracy}m). Using radius: ${allowedRadius}m`);
+                        }
+
                         showStatus('Location fetched. Submitting attendance...', 'info');
                         
                         try {
@@ -340,7 +352,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                     enrollment_no: enrollmentNo,
                                     session_id: activeSessionId,
                                     latitude: latitude,
-                                    longitude: longitude
+                                    longitude: longitude,
+                                    allowed_radius: allowedRadius // Send the determined radius to the backend
                                 })
                             });
                             const data = await response.json();
@@ -506,7 +519,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         } catch (error) {
-            console.error('Error updating attendance record:', error);
+                console.error('Error updating attendance record:', error);
             showStatus('An error occurred while updating the record.', 'error');
             if (checkboxElement) {
                 checkboxElement.checked = !isPresent; // Revert checkbox state on error

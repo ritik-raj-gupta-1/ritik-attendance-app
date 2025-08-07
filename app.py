@@ -11,6 +11,8 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24) # Keep this secure and random
 
 # --- HARDCODED CONTROLLER CREDENTIALS ---
+# !!! WARNING: NOT RECOMMENDED FOR PRODUCTION ENVIRONMENTS !!!
+# This is for a simplified, fixed-value verification as requested.
 CONTROLLER_USERNAME = "controller"
 CONTROLLER_PASSWORD = "controller_pass_123"
 # --- END HARDCODED CREDENTIALS ---
@@ -39,7 +41,6 @@ def controller_required(f):
 
 # Haversine formula for calculating distance between two lat/lon points
 def haversine_distance(lat1, lon1, lat2, lon2):
-    """Calculates the distance between two points on Earth using the Haversine formula."""
     R = 6371000 # Radius of Earth in meters
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
@@ -71,7 +72,6 @@ def login():
             if conn:
                 cur = conn.cursor()
                 # Retrieve controller ID and role from DB (assuming 'controller' user exists)
-                # In a real app, you'd hash passwords and store them securely.
                 cur.execute("SELECT id, username, role FROM users WHERE username = %s AND role = 'controller'", (username,))
                 user_data = cur.fetchone()
                 cur.close()
@@ -211,7 +211,7 @@ def start_session():
 
         session_token = secrets.token_hex(16) # Generate a secure random token
         start_time = datetime.now(timezone.utc)
-        end_time = start_time + timedelta(minutes=5) # Session lasts for 5 minutes
+        end_time = start_time + timedelta(minutes=90) # Session lasts for 90 minutes (can be adjusted)
 
         cur.execute(
             "INSERT INTO attendance_sessions (class_id, controller_id, session_token, start_time, end_time, is_active) VALUES (%s, %s, %s, %s, %s, TRUE)",
@@ -261,11 +261,17 @@ def mark_attendance():
         session_id = request.form.get('session_id') # This is the session ID
         latitude = request.form.get('latitude')
         longitude = request.form.get('longitude')
+        # --- START OF NEW CODE ---
+        # Get the allowed_radius sent from the frontend
+        allowed_radius_str = request.form.get('allowed_radius')
+        allowed_radius = float(allowed_radius_str) if allowed_radius_str else None
+        # --- END OF NEW CODE ---
         ip_address = request.remote_addr # Get client IP address
 
         conn = get_db_connection()
         if not conn:
-            return jsonify({"success": False, "message": "Database connection failed.", "category": "error"})
+            flash("Database connection failed.", "danger")
+            return redirect(url_for('mark_attendance')) # Redirect to student page
         cur = conn.cursor()
         
         try:
@@ -280,38 +286,46 @@ def mark_attendance():
             session_info = cur.fetchone()
 
             if not session_info:
-                return jsonify({"success": False, "message": "Invalid, inactive, or expired session for BA - Anthropology.", "category": "error"})
+                flash("Invalid, inactive, or expired session for BA - Anthropology.", "danger")
+                return redirect(url_for('mark_attendance'))
 
-            class_id, geofence_lat, geofence_lon, geofence_radius = session_info
+            class_id, geofence_lat, geofence_lon, geofence_radius_from_db = session_info # Renamed variable
 
             # 2. Get student ID from enrollment number and verify batch is BA
             cur.execute("SELECT id, batch FROM students WHERE enrollment_no = %s AND batch = 'BA'", (enrollment_no,))
             student_result = cur.fetchone()
             if not student_result:
-                return jsonify({"success": False, "message": "Invalid enrollment number or not a BA student.", "category": "error"})
+                flash("Invalid enrollment number or not a BA student.", "danger")
+                return redirect(url_for('mark_attendance'))
             student_id = student_result[0]
 
             # 3. Check if student already marked attendance for this session
             cur.execute("SELECT COUNT(*) FROM attendance_records WHERE session_id = %s AND student_id = %s", (session_id, student_id))
             if cur.fetchone()[0] > 0:
-                return jsonify({"success": False, "message": "Attendance already marked for this session.", "category": "warning"})
+                flash("Attendance already marked for this session.", "warning")
+                return redirect(url_for('mark_attendance'))
 
             # 4. Geofence check
-            if latitude and longitude and geofence_lat and geofence_lon and geofence_radius:
+            # --- START OF MODIFIED CODE ---
+            if latitude and longitude and geofence_lat and geofence_lon and allowed_radius is not None:
                 user_lat = float(latitude)
                 user_lon = float(longitude)
                 
                 distance = haversine_distance(user_lat, user_lon, geofence_lat, geofence_lon)
-                if distance > geofence_radius:
-                    return jsonify({"success": False, "message": f"You are {distance:.2f} meters away. Attendance can only be marked within {geofence_radius} meters of the Anthropology Department.", "category": "error"})
+                if distance > allowed_radius: # Use allowed_radius from frontend
+                    flash(f"You are {distance:.2f} meters away. Attendance can only be marked within {allowed_radius} meters of the Anthropology Department based on your GPS signal quality.", "danger")
+                    return redirect(url_for('mark_attendance'))
             else:
-                return jsonify({"success": False, "message": "Location data missing for geofence check. Please enable location services.", "category": "error"})
+                flash("Location data or allowed radius missing for geofence check. Please enable location services.", "danger")
+                return redirect(url_for('mark_attendance'))
+            # --- END OF MODIFIED CODE ---
 
             # 5. IP Address check (preventing multiple marks from same IP on same day)
             today_date = datetime.now(timezone.utc).date()
             cur.execute("SELECT COUNT(*) FROM daily_attendance_ips WHERE ip_address = %s AND date = %s", (ip_address, today_date))
             if cur.fetchone()[0] > 0:
-                return jsonify({"success": False, "message": "Attendance already marked from this IP address today. Only one submission per IP per day.", "category": "warning"})
+                flash("Attendance already marked from this IP address today. Only one submission per IP per day.", "warning")
+                return redirect(url_for('mark_attendance'))
 
             # 6. Mark attendance
             timestamp = datetime.now(timezone.utc)
@@ -327,14 +341,16 @@ def mark_attendance():
             )
             
             conn.commit()
-            return jsonify({"success": True, "message": "Attendance marked successfully!", "category": "success"})
+            flash("Attendance marked successfully!", "success")
 
         except Exception as e:
             print(f"Error marking attendance: {e}")
-            return jsonify({"success": False, "message": "An error occurred while marking attendance. Please try again.", "category": "error"})
+            flash("An error occurred while marking attendance. Please try again.", "danger")
         finally:
             cur.close()
             conn.close()
+
+        return redirect(url_for('mark_attendance'))
     
     # For GET request, display active BA - Anthropology session for students
     conn = get_db_connection()
@@ -433,87 +449,43 @@ def api_get_active_ba_session():
 @app.route('/attendance_report')
 @controller_required
 def attendance_report():
-    """Displays a detailed attendance report for BA - Anthropology, grouped by date."""
+    """Displays a detailed attendance report for BA - Anthropology."""
     conn = get_db_connection()
     if not conn:
         flash("Database connection failed.", "danger")
         return redirect(url_for('controller_dashboard'))
     cur = conn.cursor()
 
-    daily_attendance_summary = {} # Date -> {student_id -> is_present}
-    students_info = {} # student_id -> {enrollment_no, name}
-    
+    attendance_data = []
     try:
         # Get the BA - Anthropology class ID
         cur.execute("SELECT id FROM classes WHERE class_name = 'BA - Anthropology'")
         ba_anthropology_class_id = cur.fetchone()[0]
 
-        # Fetch all BA students
-        cur.execute("SELECT id, enrollment_no, name FROM students WHERE batch = 'BA' ORDER BY enrollment_no")
-        all_ba_students = cur.fetchall()
-        for s_id, s_enroll, s_name in all_ba_students:
-            students_info[s_id] = {'enrollment_no': s_enroll, 'name': s_name}
-
-        # Fetch all attendance records for BA - Anthropology
-        # Group by student_id and date to get unique attendance per student per day
+        # Fetch attendance records only for BA - Anthropology students
         cur.execute("""
-            SELECT ar.student_id, ar.timestamp::date AS attendance_date
+            SELECT s.enrollment_no, s.name, s.batch, c.class_name, asess.start_time, ar.timestamp, ar.latitude, ar.longitude, ar.ip_address
             FROM attendance_records ar
+            JOIN students s ON ar.student_id = s.id
             JOIN attendance_sessions asess ON ar.session_id = asess.id
-            WHERE asess.class_id = %s
-            GROUP BY ar.student_id, attendance_date
-            ORDER BY attendance_date DESC, ar.student_id ASC
+            JOIN classes c ON asess.class_id = c.id
+            WHERE s.batch = 'BA' AND c.id = %s
+            ORDER BY ar.timestamp DESC
         """, (ba_anthropology_class_id,))
+        raw_data = cur.fetchall()
         
-        present_records = cur.fetchall()
-
-        # Populate daily_attendance_summary
-        for student_id, attendance_date in present_records:
-            date_str = attendance_date.strftime('%Y-%m-%d')
-            if date_str not in daily_attendance_summary:
-                daily_attendance_summary[date_str] = {}
-            daily_attendance_summary[date_str][student_id] = True # Mark as present
-
-        # Generate a list of all dates from the earliest record to today
-        all_unique_dates = sorted(daily_attendance_summary.keys())
-        if not all_unique_dates:
-            start_date = datetime.now(timezone.utc).date() # If no records, start from today
-        else:
-            start_date = datetime.strptime(all_unique_dates[0], '%Y-%m-%d').date()
-        
-        end_date = datetime.now(timezone.utc).date()
-        
-        date_range = [start_date + timedelta(days=x) for x in range((end_date - start_date).days + 1)]
-        date_range_str = [d.strftime('%Y-%m-%d') for d in date_range]
-
-        # Prepare final data for template
-        report_data = []
-        for date_str in sorted(date_range_str, reverse=True): # Sort dates descending for display
-            current_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            daily_entry = {'date': date_str, 'students': []}
-            
-            is_weekend = current_date.weekday() >= 5 # Saturday is 5, Sunday is 6
-            
-            # Check if any attendance was marked at all for this date
-            any_attendance_on_date = bool(daily_attendance_summary.get(date_str))
-
-            for s_id in sorted(students_info.keys()): # Iterate through all students
-                student_present = daily_attendance_summary.get(date_str, {}).get(s_id, False)
-                
-                status = "Present" if student_present else "Absent"
-                
-                # If it's a weekend AND no attendance was marked for this student on this day
-                # AND no attendance was marked for *any* student on this day (to avoid marking holiday if a session ran)
-                if is_weekend and not student_present and not any_attendance_on_date:
-                    status = "Holiday"
-                
-                daily_entry['students'].append({
-                    'enrollment_no': students_info[s_id]['enrollment_no'],
-                    'name': students_info[s_id]['name'],
-                    'status': status # Use 'status' instead of 'is_present' for string value
-                })
-            report_data.append(daily_entry)
-
+        for row in raw_data:
+            attendance_data.append({
+                'enrollment_no': row[0],
+                'student_name': row[1],
+                'student_batch': row[2],
+                'class_name': row[3],
+                'session_start_time': row[4].strftime('%Y-%m-%d %H:%M:%S %Z'),
+                'marked_time': row[5].strftime('%Y-%m-%d %H:%M:%S %Z'),
+                'latitude': row[6],
+                'longitude': row[7],
+                'ip_address': row[8]
+            })
     except Exception as e:
         print(f"Error fetching attendance report: {e}")
         flash("An error occurred while fetching the attendance report.", "danger")
@@ -521,7 +493,7 @@ def attendance_report():
         cur.close()
         conn.close()
     
-    return render_template('attendance_report.html', report_data=report_data)
+    return render_template('attendance_report.html', attendance_data=attendance_data)
 
 @app.route('/export_attendance_csv')
 @controller_required
@@ -537,71 +509,35 @@ def export_attendance_csv():
         cur.execute("SELECT id FROM classes WHERE class_name = 'BA - Anthropology'")
         ba_anthropology_class_id = cur.fetchone()[0]
 
-        # Fetch all BA students
-        cur.execute("SELECT id, enrollment_no, name FROM students WHERE batch = 'BA' ORDER BY enrollment_no")
-        all_ba_students = cur.fetchall()
-        students_info = {s_id: {'enrollment_no': s_enroll, 'name': s_name} for s_id, s_enroll, s_name in all_ba_students}
-
-        # Fetch all attendance records for BA - Anthropology
         cur.execute("""
-            SELECT ar.student_id, ar.timestamp::date AS attendance_date
+            SELECT s.enrollment_no, s.name, s.batch, c.class_name, asess.start_time, ar.timestamp, ar.latitude, ar.longitude, ar.ip_address
             FROM attendance_records ar
+            JOIN students s ON ar.student_id = s.id
             JOIN attendance_sessions asess ON ar.session_id = asess.id
-            WHERE asess.class_id = %s
-            GROUP BY ar.student_id, attendance_date
-            ORDER BY attendance_date ASC
+            JOIN classes c ON asess.class_id = c.id
+            WHERE s.batch = 'BA' AND c.id = %s
+            ORDER BY ar.timestamp DESC
         """, (ba_anthropology_class_id,))
-        
-        present_records = cur.fetchall()
+        rows = cur.fetchall()
 
-        daily_attendance_summary = {} # Date -> {student_id -> True}
-        all_dates_with_attendance = set()
-
-        for student_id, attendance_date in present_records:
-            date_str = attendance_date.strftime('%Y-%m-%d')
-            all_dates_with_attendance.add(date_str)
-            if date_str not in daily_attendance_summary:
-                daily_attendance_summary[date_str] = {}
-            daily_attendance_summary[date_str][student_id] = True
-
-        # Generate a list of all dates from the earliest record to today
-        sorted_dates_with_attendance = sorted(list(all_dates_with_attendance))
-        if not sorted_dates_with_attendance:
-            start_date = datetime.now(timezone.utc).date()
-        else:
-            start_date = datetime.strptime(sorted_dates_with_attendance[0], '%Y-%m-%d').date()
-        
-        end_date = datetime.now(timezone.utc).date()
-        
-        date_range = [start_date + timedelta(days=x) for x in range((end_date - start_date).days + 1)]
-        date_range_str = [d.strftime('%Y-%m-%d') for d in date_range]
-
-
+        # Create a CSV in memory
         output = io.StringIO()
-        
-        # CSV Header: Date, Student1 Name (Enrollment), Student2 Name (Enrollment), ...
-        header_parts = ["Date"]
-        sorted_student_ids = sorted(students_info.keys())
-        for s_id in sorted_student_ids:
-            header_parts.append(f"{students_info[s_id]['name']} ({students_info[s_id]['enrollment_no']})")
-        output.write(",".join(header_parts) + "\n")
-
+        # CSV Header
+        output.write("Enrollment No,Student Name,Batch,Class Name,Session Start Time,Attendance Marked Time,Latitude,Longitude,IP Address\n")
         # CSV Data
-        for date_str in sorted(date_range_str): # Iterate through all dates in range, sorted ascending
-            current_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            row_parts = [date_str]
-            is_weekend = current_date.weekday() >= 5 # Saturday is 5, Sunday is 6
-            any_attendance_on_date = bool(daily_attendance_summary.get(date_str))
-
-            for s_id in sorted_student_ids:
-                is_present = daily_attendance_summary.get(date_str, {}).get(s_id, False)
-                
-                status = "Present" if is_present else "Absent"
-                if is_weekend and not is_present and not any_attendance_on_date:
-                    status = "Holiday"
-                
-                row_parts.append(status)
-            output.write(",".join(row_parts) + "\n")
+        for row in rows:
+            formatted_row = [
+                str(row[0]), # enrollment_no
+                str(row[1]), # student_name
+                str(row[2]), # batch
+                str(row[3]), # class_name
+                row[4].strftime('%Y-%m-%d %H:%M:%S %Z'), # session_start_time
+                row[5].strftime('%Y-%m-%d %H:%M:%S %Z'), # marked_time
+                str(row[6]) if row[6] is not None else '', # latitude
+                str(row[7]) if row[7] is not None else '', # longitude
+                str(row[8]) if row[8] is not None else ''  # ip_address
+            ]
+            output.write(",".join(formatted_row) + "\n")
         
         output.seek(0) # Rewind to the beginning of the stream
 
@@ -609,7 +545,7 @@ def export_attendance_csv():
             io.BytesIO(output.getvalue().encode('utf-8')),
             mimetype='text/csv',
             as_attachment=True,
-            download_name='daily_attendance_summary_BA_Anthropology.csv'
+            download_name='attendance_report_BA_Anthropology.csv'
         )
 
     except Exception as e:
@@ -661,8 +597,7 @@ def api_get_session_students_for_edit(session_id):
     """API endpoint to get all BA students for a session, including their attendance status for editing."""
     conn = get_db_connection()
     if not conn:
-        # Return a structured error response that frontend can understand
-        return jsonify({"success": False, "message": "Database connection failed."})
+        return jsonify([]) # Return empty list on connection failure
     cur = conn.cursor()
     try:
         # Get all BA students
@@ -682,12 +617,10 @@ def api_get_session_students_for_edit(session_id):
                 'batch': student[3],
                 'is_present': student[0] in attended_student_ids
             })
-        # Return success: True with the data
         return jsonify(students_data)
     except Exception as e:
         print(f"Error fetching session students for edit: {e}")
-        # Return a structured error response
-        return jsonify({"success": False, "message": "An error occurred while fetching students."})
+        return jsonify([])
     finally:
         cur.close()
         conn.close()
@@ -708,6 +641,9 @@ def api_update_attendance_record():
     try:
         if is_present:
             # Insert if not exists, or do nothing if already present
+            # We also record the timestamp, latitude, longitude, and IP if available,
+            # but for manual edits, we can use current time and mark location/IP as N/A or default.
+            # For simplicity, we'll use current timestamp and null for location/IP for manual edits.
             cur.execute(
                 "INSERT INTO attendance_records (session_id, student_id, timestamp, latitude, longitude, ip_address) VALUES (%s, %s, %s, NULL, NULL, 'Manual_Edit')",
                 (session_id, student_id, datetime.now(timezone.utc))
@@ -727,53 +663,16 @@ def api_update_attendance_record():
         cur.close()
         conn.close()
 
-# New route to delete all attendance for a specific date
-@app.route('/delete_daily_attendance', methods=['POST'])
-@controller_required
-def delete_daily_attendance():
-    """Deletes all attendance records and associated daily IP logs for a given date."""
-    data = request.get_json()
-    date_str = data.get('date') # Expected format 'YYYY-MM-DD'
-
-    if not date_str:
-        return jsonify({"success": False, "message": "Date not provided."})
-
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"success": False, "message": "Database connection failed."})
-    cur = conn.cursor()
-    try:
-        # Convert date string to date object for comparison
-        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-
-        # Get all session IDs that occurred on the target date for BA - Anthropology class
-        cur.execute("""
-            SELECT asess.id
-            FROM attendance_sessions asess
-            JOIN classes c ON asess.class_id = c.id
-            WHERE c.class_name = 'BA - Anthropology'
-            AND asess.start_time::date = %s
-        """, (target_date,))
-        session_ids_to_delete = [row[0] for row in cur.fetchall()]
-
-        if not session_ids_to_delete:
-            return jsonify({"success": False, "message": f"No attendance sessions found for {date_str} in BA - Anthropology."})
-
-        # Delete attendance records linked to these sessions
-        cur.execute(f"DELETE FROM attendance_records WHERE session_id IN ({','.join(map(str, session_ids_to_delete))})")
-        
-        # Delete the daily IP records for this date
-        cur.execute("DELETE FROM daily_attendance_ips WHERE date = %s", (target_date,))
-        
-        conn.commit()
-        return jsonify({"success": True, "message": f"All attendance records for {date_str} deleted successfully."})
-    except Exception as e:
-        print(f"Error deleting daily attendance for {date_str}: {e}")
-        return jsonify({"success": False, "message": f"An error occurred while deleting attendance for {date_str}."})
-    finally:
-        cur.close()
-        conn.close()
-
+# Utility route to generate password hashes (for local use, remove in production)
+# This route is no longer needed with hardcoded credentials, but keeping it as a utility example.
+@app.route('/generate_hash/<password_text>')
+def generate_hash_route(password_text):
+    # This function now requires werkzeug.security, which is removed from imports.
+    # If you need this utility, you'd need to re-add the import and bcrypt to requirements.txt
+    # For this simplified app, it's best to remove this route entirely for clarity.
+    return "Password hashing utility is not active in this simplified version."
 
 if __name__ == '__main__':
+    # This block is for local development only.
+    # For Render, the Gunicorn command in Procfile runs the app.
     app.run(debug=True)
