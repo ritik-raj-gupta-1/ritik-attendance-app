@@ -223,4 +223,76 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // --- Edit Attendance Page Logic (for controller) ---
+    const editAttendanceTable = document.getElementById('edit-attendance-table');
+    if (editAttendanceTable) {
+        const sessionId = editAttendanceTable.dataset.sessionId;
+        fetchStudentsForEdit(sessionId);
+    }
+
+    async function fetchStudentsForEdit(sessionId) {
+        try {
+            const response = await fetch(`/api/get_session_students_for_edit/${sessionId}`);
+            const data = await response.json();
+
+            if (data.success === false) { // API returns success:false on error/permission denied
+                showStatus(data.message || "Could not load students for editing.", 'error');
+                return;
+            }
+
+            const tbody = editAttendanceTable.querySelector('tbody');
+            tbody.innerHTML = ''; // Clear existing rows
+
+            data.forEach(student => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${student.enrollment_no}</td>
+                    <td>${student.name}</td>
+                    <td>${student.batch}</td>
+                    <td>
+                        <input type="checkbox" data-student-id="${student.id}" class="attendance-checkbox" ${student.is_present ? 'checked' : ''}>
+                    </td>
+                `;
+            });
+
+            // Add event listeners to checkboxes
+            tbody.querySelectorAll('.attendance-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', async function() {
+                    const studentId = this.dataset.studentId;
+                    const isPresent = this.checked;
+                    await updateAttendanceRecord(sessionId, studentId, isPresent);
+                });
+            });
+
+        } catch (error) {
+            console.error('Error fetching students for edit:', error);
+            showStatus('Failed to load student attendance for editing.', 'error');
+        }
+    }
+
+    async function updateAttendanceRecord(sessionId, studentId, isPresent) {
+        try {
+            const response = await fetch('/api/update_attendance_record', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    student_id: studentId,
+                    is_present: isPresent
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                showStatus(data.message, 'success');
+            } else {
+                showStatus(data.message, 'error');
+            }
+        } catch (error) {
+            console.error('Error updating attendance record:', error);
+            showStatus('An error occurred while updating the record.', 'error');
+        }
+    }
 });

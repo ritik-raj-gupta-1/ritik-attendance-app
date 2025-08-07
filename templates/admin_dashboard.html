@@ -99,6 +99,14 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+        .session-token-display {
+            background-color: #e9ecef;
+            padding: 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            word-break: break-all;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -128,8 +136,9 @@
                     <p>Ends: {{ active_session.end_time }}</p>
                     <p>Time Remaining: <span id="timer-{{ active_session.id }}" style="font-weight: bold;">{{ active_session.remaining_time }}s</span></p>
                     <form action="{{ url_for('end_session', session_id=active_session.id) }}" method="post" style="display:inline;">
-                        <button type="submit" class="button end-session-btn" style="background-color: #dc3545;">End Session</button>
+                        <button type="submit" class="button end-session-btn" data-session-id="{{ active_session.id }}" style="background-color: #dc3545;">End Session</button>
                     </form>
+                    <a href="{{ url_for('edit_attendance', session_id=active_session.id) }}" class="button" style="background-color: #007bff;">Edit Attendance</a>
                 {% else %}
                     <p>No active session for BA - Anthropology.</p>
                     <form action="{{ url_for('start_session') }}" method="post">
@@ -142,8 +151,6 @@
                 <h3>Attendance Reports & Management</h3>
                 <p>View comprehensive attendance records and manage daily data.</p>
                 <a href="{{ url_for('attendance_report') }}" class="button">View Daily Attendance Report</a>
-                {# <a href="{{ url_for('add_class') }}" class="button">Add New Class</a> #}
-                {# <a href="{{ url_for('add_student') }}" class="button">Add New Student</a> #}
             </div>
 
             {# Custom Confirmation Modal Structure #}
@@ -185,40 +192,9 @@
         }
         {% endif %}
 
-        // Handle End Session button click (if using JS for AJAX)
-        document.querySelectorAll('.end-session-btn').forEach(button => {
-            button.addEventListener('click', async function(e) {
-                e.preventDefault(); // Prevent default form submission
-                const form = this.closest('form');
-                const sessionId = form.action.split('/').pop(); // Extract session_id from action URL
-
-                // Show confirmation modal
-                showConfirmationModal(`Are you sure you want to end this attendance session (ID: ${sessionId})?`, null); // No date for session end
-                
-                // Override confirm-yes for session end
-                confirmYesBtn.onclick = async function() {
-                    hideConfirmationModal();
-                    try {
-                        const response = await fetch(form.action, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json' // Flask expects JSON for jsonify
-                            }
-                        });
-                        const data = await response.json();
-                        if (data.success) {
-                            alert(data.message); // Use alert for simplicity here, or custom message display
-                            window.location.reload(); // Reload to update dashboard
-                        } else {
-                            alert(data.message);
-                        }
-                    } catch (error) {
-                        console.error('Error ending session:', error);
-                        alert('An error occurred while ending the session.');
-                    }
-                };
-            });
-        });
+        // Handle End Session button click (using main.js for AJAX)
+        // The event listener for .end-session-btn is now in main.js
+        // and uses a data-session-id attribute.
     </script>
 </body>
 </html>

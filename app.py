@@ -704,7 +704,7 @@ def api_update_attendance_record():
         if is_present:
             # Insert if not exists, or do nothing if already present
             cur.execute(
-                "INSERT INTO attendance_records (session_id, student_id, timestamp, latitude, longitude, ip_address) VALUES (%s, %s, %s, NULL, NULL, 'Manual_Edit')",
+                "INSERT INTO attendance_records (session_id, student_id, timestamp, latitude, longitude, ip_address) VALUES (%s, %s, %s, NULL, NULL, 'Manual_Edit') ON CONFLICT (session_id, student_id) DO NOTHING",
                 (session_id, student_id, datetime.now(timezone.utc))
             )
         else:
