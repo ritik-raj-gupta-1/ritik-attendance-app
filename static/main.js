@@ -310,13 +310,28 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Fetching students for session:', sessionId); // Debug log
 
         try {
+            console.log('Attempting fetch to /api/get_session_students_for_edit/' + sessionId); // New debug log
             const response = await fetch(`/api/get_session_students_for_edit/${sessionId}`);
+            console.log('Fetch response received:', response); // New debug log
+
+            if (!response.ok) { // Check if response status is 2xx
+                const errorText = await response.text();
+                console.error('HTTP error! Status:', response.status, 'Response text:', errorText);
+                if (loadingMessage) loadingMessage.style.display = 'none';
+                if (errorMessage) {
+                    errorMessage.textContent = `Error fetching data: ${response.status} - ${errorText.substring(0, 100)}`;
+                    errorMessage.style.display = 'block';
+                }
+                return;
+            }
+
             const data = await response.json();
-            console.log('Students for edit fetched:', data); // Debug log
+            console.log('Students for edit fetched (parsed JSON):', data); // Debug log
 
             if (loadingMessage) loadingMessage.style.display = 'none';
 
-            if (data.success === false) { // API returns success:false on error/permission denied
+            // Check if the API returned a success: false structure for errors from the backend
+            if (data.success === false) {
                 if (errorMessage) {
                     errorMessage.textContent = data.message || "Could not load students for editing.";
                     errorMessage.style.display = 'block';
@@ -351,7 +366,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
         } catch (error) {
-            console.error('Error fetching students for edit:', error);
+            console.error('Error fetching students for edit (catch block):', error); // Debug log
             if (loadingMessage) loadingMessage.style.display = 'none';
             if (errorMessage) {
                 errorMessage.textContent = 'Failed to load student data: ' + error.message;
@@ -361,7 +376,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function updateAttendanceRecord(sessionId, studentId, isPresent, checkboxElement) {
-        const updateStatus = document.getElementById('update-status'); // Get status div for edit page
+        const updateStatus = document.getElementById('status-message'); // Use the global status message div
         if (updateStatus) showStatus('Updating attendance...', 'info');
         console.log(`Updating attendance record for session ${sessionId}, student ${studentId}, present: ${isPresent}`); // Debug log
 

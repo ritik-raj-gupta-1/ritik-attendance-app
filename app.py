@@ -659,7 +659,8 @@ def api_get_session_students_for_edit(session_id):
     """API endpoint to get all BA students for a session, including their attendance status for editing."""
     conn = get_db_connection()
     if not conn:
-        return jsonify([]) # Return empty list on connection failure
+        # Return a structured error response that frontend can understand
+        return jsonify({"success": False, "message": "Database connection failed."})
     cur = conn.cursor()
     try:
         # Get all BA students
@@ -679,10 +680,12 @@ def api_get_session_students_for_edit(session_id):
                 'batch': student[3],
                 'is_present': student[0] in attended_student_ids
             })
+        # Return success: True with the data
         return jsonify(students_data)
     except Exception as e:
         print(f"Error fetching session students for edit: {e}")
-        return jsonify([])
+        # Return a structured error response
+        return jsonify({"success": False, "message": "An error occurred while fetching students."})
     finally:
         cur.close()
         conn.close()
