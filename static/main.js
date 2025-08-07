@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Global status message div (present on admin_dashboard, attendance_report, edit_attendance, student_attendance)
     const statusMessageDiv = document.getElementById('status-message');
 
-    // Custom Confirmation Modal Elements (present in admin_dashboard.html)
+    // Custom Confirmation Modal Elements (present in admin_dashboard.html and now attendance_report.html)
     const confirmationModal = document.getElementById('confirmation-modal');
     const confirmMessage = document.getElementById('confirm-message');
     const confirmYesBtn = document.getElementById('confirm-yes');
@@ -70,28 +70,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Attach event listeners for the confirmation modal
     if (modalCloseBtn) {
-        modalCloseBtn.onclick = hideConfirmationModal;
+        modalCloseBtn.addEventListener('click', hideConfirmationModal);
+        console.log('Modal close button listener attached.');
     }
     if (confirmNoBtn) {
-        confirmNoBtn.onclick = hideConfirmationModal;
+        confirmNoBtn.addEventListener('click', hideConfirmationModal);
+        console.log('Confirm No button listener attached.');
     }
     if (confirmYesBtn) {
-        confirmYesBtn.onclick = async function() {
-            hideConfirmationModal();
+        confirmYesBtn.addEventListener('click', async function() {
+            console.log('--- CONFIRM YES BUTTON CLICKED ---'); // NEW: Critical log here!
+            hideConfirmationModal(); // This will log 'Confirmation modal hidden.'
             if (pendingDeleteDate) {
-                console.log('Confirming action for:', pendingDeleteDate);
-                // This is specifically for daily attendance deletion
+                console.log('Proceeding with deletion for date:', pendingDeleteDate); // This log should appear now
                 await deleteDailyAttendance(pendingDeleteDate);
+            } else {
+                console.warn('pendingDeleteDate is null. Cannot proceed with deletion.');
             }
-        };
+        });
+        console.log('Confirm Yes button listener attached.');
+    } else {
+        console.error('Confirm Yes button element not found on DOMContentLoaded!');
     }
 
     // Click outside modal to close
-    window.onclick = function(event) {
+    window.addEventListener('click', function(event) {
         if (event.target == confirmationModal) {
             hideConfirmationModal();
         }
-    };
+    });
 
     // --- Controller Dashboard Logic ---
 
