@@ -116,17 +116,7 @@
             {% endif %}
         </div>
     </div>
-    {# Custom Confirmation Modal Structure (moved here to be accessible by main.js) #}
-    <div id="confirmation-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <p id="confirm-message"></p>
-            <div class="modal-buttons">
-                <button id="confirm-yes" class="confirm-yes">Yes, Delete</button>
-                <button id="confirm-no" class="confirm-no">No, Cancel</button>
-            </div>
-        </div>
-    </div>
+    {# Custom Confirmation Modal Structure is now in admin_dashboard.html, main.js will find it #}
     <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>
