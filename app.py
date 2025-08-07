@@ -68,7 +68,10 @@ def login():
             cur.close()
             conn.close()
 
-            if user and check_password_hash(user[2], password):
+            # --- START OF ROBUSTNESS CHANGE ---
+            # Check if user exists AND if the password hash (user[2]) is a valid non-empty string
+            if user and isinstance(user[2], str) and user[2].strip() and check_password_hash(user[2], password):
+            # --- END OF ROBUSTNESS CHANGE ---
                 session['user_id'] = user[0]
                 session['username'] = user[1]
                 session['role'] = user[3] # Should always be 'controller'
@@ -644,25 +647,11 @@ def api_update_attendance_record():
         cur.close()
         conn.close()
 
-# Removed unused routes for 'teacher_dashboard', 'add_class', 'add_student'
-# @app.route('/teacher_dashboard')
-# @controller_required # This would be if controller can access it, but we are removing teacher role
-# def teacher_dashboard():
-#     flash("Teacher dashboard functionality is not enabled in this minimal setup.", "info")
-#     return redirect(url_for('controller_dashboard'))
-
-# @app.route('/add_class', methods=['GET', 'POST'])
-# @controller_required
-# def add_class():
-#     flash("Add class functionality is not enabled in this minimal setup.", "info")
-#     return redirect(url_for('controller_dashboard'))
-
-# @app.route('/add_student', methods=['GET', 'POST'])
-# @controller_required
-# def add_student():
-#     flash("Add student functionality is not enabled in this minimal setup.", "info")
-#     return redirect(url_for('controller_dashboard'))
-
+# Utility route to generate password hashes (for local use, remove in production)
+@app.route('/generate_hash/<password_text>')
+def generate_hash_route(password_text):
+    hashed_password = generate_password_hash(password_text)
+    return f"Hashed password for '{password_text}': {hashed_password}"
 
 if __name__ == '__main__':
     # This block is for local development only.
