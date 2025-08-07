@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Report</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Attendance Report (BA - Anthropology)</h2>
+            <a href="{{ url_for('controller_dashboard') }}" class="back-link button">Back to Dashboard</a>
+            <a href="{{ url_for('export_attendance_csv') }}" class="button" style="background-color: #6c757d;">Export to CSV</a>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flashes">
+                    {% for category, message in messages %}
+                        <li class="{{ category }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+        <div class="dashboard-content">
+            {% if attendance_data %}
+            <div style="overflow-x: auto;"> {# Make table scrollable on small screens #}
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Enrollment No</th>
+                            <th>Student Name</th>
+                            <th>Batch</th>
+                            <th>Class Name</th>
+                            <th>Session Start</th>
+                            <th>Marked Time</th>
+                            <th>Latitude</th>
+                            <th>Longitude</th>
+                            <th>IP Address</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in attendance_data %}
+                        <tr>
+                            <td>{{ record.enrollment_no }}</td>
+                            <td>{{ record.student_name }}</td>
+                            <td>{{ record.student_batch }}</td>
+                            <td>{{ record.class_name }}</td>
+                            <td>{{ record.session_start_time }}</td>
+                            <td>{{ record.marked_time }}</td>
+                            <td>{{ record.latitude | default('N/A') }}</td>
+                            <td>{{ record.longitude | default('N/A') }}</td>
+                            <td>{{ record.ip_address | default('N/A') }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="info-message">
+                No attendance records found for BA - Anthropology.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

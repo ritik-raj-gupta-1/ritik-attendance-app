@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Attendance - Session {{ session.id }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Specific styles for the attendance table on edit page */
+        .data-table th, .data-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .data-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .data-table tbody tr:hover {
+            background-color: #f5f5f5;
+        }
+        .data-table input[type="checkbox"] {
+            transform: scale(1.5); /* Make checkbox larger */
+            margin-right: 5px;
+            cursor: pointer;
+        }
+        .status-message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status-message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status-message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Edit Attendance for BA - Anthropology</h2>
+            <p>Session ID: {{ session.id }} | Started: {{ session.start_time }}</p>
+            <a href="{{ url_for('controller_dashboard') }}" class="back-link button">Back to Dashboard</a>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flashes">
+                    {% for category, message in messages %}
+                        <li class="{{ category }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+        <div class="dashboard-content">
+            <p>Manually mark students as present or absent for this session. Changes are saved instantly.</p>
+            <div id="loading-message" class="info-message" style="display: none;">Loading student data...</div>
+            <div id="error-message" class="error-message" style="display: none;"></div>
+
+            <div style="overflow-x: auto;">
+                <table id="attendance-table" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Enrollment No</th>
+                            <th>Student Name</th>
+                            <th>Present</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {# Student data will be loaded here by JavaScript #}
+                    </tbody>
+                </table>
+            </div>
+            <div id="update-status" class="status-message" style="display: none;"></div>
+        </div>
+    </div>
+    <script>
+        const sessionId = {{ session.id }};
+        const attendanceTableBody = document.querySelector('#attendance-table tbody');
+        const loadingMessage = document.getElementById('loading-message');
+        const errorMessage = document.getElementById('error-message');
+        const updateStatus = document.getElementById('update-status');
+
+        // Function to display a temporary status message
+        function showStatus(message, type) {
+            updateStatus.textContent = message;
+            updateStatus.className = `status-message ${type}`;
+            updateStatus.style.display = 'block';
+            setTimeout(() => {
+                updateStatus.style.display = 'none';
+            }, 3000); // Hide after 3 seconds
+        }
+
+        function fetchStudents() {
+            loadingMessage.style.display = 'block';
+            errorMessage.style.display = 'none';
+            attendanceTableBody.innerHTML = ''; // Clear existing rows
+
+            fetch(`/api/get_session_students_for_edit/${sessionId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(students => {
+                    loadingMessage.style.display = 'none';
+                    if (students.length === 0) {
+                        attendanceTableBody.innerHTML = '<tr><td colspan="3">No BA students found or session data is unavailable.</td></tr>';
+                        return;
+                    }
+                    students.forEach(student => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${student.enrollment_no}</td>
+                            <td>${student.name}</td>
+                            <td>
+                                <input type="checkbox" 
+                                       data-student-id="${student.id}" 
+                                       ${student.is_present ? 'checked' : ''} 
+                                       onchange="updateAttendance(this)">
+                            </td>
+                        `;
+                        attendanceTableBody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching students:', error);
+                    loadingMessage.style.display = 'none';
+                    errorMessage.textContent = 'Failed to load student data: ' + error.message;
+                    errorMessage.style.display = 'block';
+                });
+        }
+
+        function updateAttendance(checkbox) {
+            const studentId = checkbox.getAttribute('data-student-id');
+            const isPresent = checkbox.checked;
+
+            showStatus('Updating attendance...', 'info');
+
+            fetch('/api/update_attendance_record', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    student_id: studentId,
+                    is_present: isPresent
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    showStatus(data.message, 'success');
+                } else {
+                    showStatus(data.message, 'error');
+                    checkbox.checked = !isPresent; // Revert change on failure
+                }
+            })
+            .catch(error => {
+                console.error('Error updating attendance:', error);
+                showStatus('An error occurred while updating attendance: ' + error.message, 'error');
+                checkbox.checked = !isPresent; // Revert change on error
+            });
+        }
+
+        // Fetch students when the page loads
+        fetchStudents();
+    </script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controller Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Controller Dashboard</h2>
+            <p>Welcome, {{ username }}</p>
+            <a href="{{ url_for('logout') }}" class="logout-link">Logout</a>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flashes">
+                    {% for category, message in messages %}
+                        <li class="{{ category }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+        <div class="dashboard-content">
+            <h3>Attendance Session Control (BA - Anthropology)</h3>
+            {% if active_session %}
+            <div id="active-session-info" style="background-color: #e6f7ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #91d5ff;">
+                <h4>Active Session: {{ active_session.class_name }}</h4>
+                <p>Session ID: {{ active_session.id }}</p>
+                <p>Token: <strong>{{ active_session.session_token }}</strong></p>
+                <p>Started: {{ active_session.start_time }}</p>
+                <div id="timer" style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">Time remaining: <span id="time-remaining"></span></div>
+                <button onclick="endAttendance({{ active_session.id }})" class="button end-button" style="background-color: #dc3545;">End Session</button>
+            </div>
+            {% else %}
+            <div class="info-message" style="margin-bottom: 20px;">
+                No active attendance session for BA - Anthropology.
+            </div>
+            <form action="{{ url_for('start_session') }}" method="post">
+                <input type="hidden" name="class_id" value="{{ ba_anthropology_class_id }}"> {# Pass the class ID to the backend #}
+                <button type="submit" class="button">Start New Session (BA - Anthropology)</button>
+            </form>
+            {% endif %}
+
+            <h3 style="margin-top: 30px;">Reports & Data Management</h3>
+            <a href="{{ url_for('attendance_report') }}" class="button" style="background-color: #28a745;">View Attendance Report</a>
+            <a href="{{ url_for('export_attendance_csv') }}" class="button" style="background-color: #6c757d;">Export Attendance to CSV</a>
+            
+            <h3 style="margin-top: 30px;">Edit Past Sessions</h3>
+            {% if all_sessions %}
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Session ID</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for session in all_sessions %}
+                        <tr>
+                            <td>{{ session.id }}</td>
+                            <td>{{ session.start_time }}</td>
+                            <td>{{ session.end_time }}</td>
+                            <td>{{ "Active" if session.is_active else "Ended" }}</td>
+                            <td>
+                                <a href="{{ url_for('edit_attendance', session_id=session.id) }}" class="button" style="background-color: #007bff; padding: 5px 10px; font-size: 0.9em;">Edit Attendance</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="info-message">
+                No past sessions available to edit.
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+    <script>
+        // Function to handle ending an attendance session
+        function endAttendance(sessionId) {
+            if (confirm("Are you sure you want to end this attendance session?")) {
+                fetch(`/end_session/${sessionId}`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        window.location.reload(); // Reload to show updated session status
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while ending the session.');
+                });
+            }
+        }
+        
+        // --- Countdown Timer Logic ---
+        {% if active_session %}
+        var remainingTime = {{ remaining_time }};
+        var timerDisplay = document.getElementById("time-remaining");
+
+        if (remainingTime > 0) {
+            var x = setInterval(function() {
+                var minutes = Math.floor(remainingTime / 60);
+                var seconds = remainingTime % 60;
+                timerDisplay.innerHTML = minutes + "m " + seconds + "s";
+
+                if (remainingTime <= 0) {
+                    clearInterval(x);
+                    timerDisplay.innerHTML = "Attendance session has ended.";
+                    window.location.reload(); // Reload to update dashboard status
+                }
+                remainingTime--;
+            }, 1000);
+        } else {
+            timerDisplay.innerHTML = "Attendance session has ended.";
+        }
+        {% endif %}
+    </script>
+</body>
+</html>
