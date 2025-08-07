@@ -211,7 +211,7 @@ def start_session():
 
         session_token = secrets.token_hex(16) # Generate a secure random token
         start_time = datetime.now(timezone.utc)
-        end_time = start_time + timedelta(minutes=90) # Session lasts for 90 minutes (can be adjusted)
+        end_time = start_time + timedelta(minutes=5) # Session lasts for 90 minutes (can be adjusted)
 
         cur.execute(
             "INSERT INTO attendance_sessions (class_id, controller_id, session_token, start_time, end_time, is_active) VALUES (%s, %s, %s, %s, %s, TRUE)",
