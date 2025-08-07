@@ -68,17 +68,28 @@ def login():
             cur.close()
             conn.close()
 
-            # --- START OF ROBUSTNESS CHANGE ---
-            # Check if user exists AND if the password hash (user[2]) is a valid non-empty string
-            if user and isinstance(user[2], str) and user[2].strip() and check_password_hash(user[2], password):
-            # --- END OF ROBUSTNESS CHANGE ---
-                session['user_id'] = user[0]
-                session['username'] = user[1]
-                session['role'] = user[3] # Should always be 'controller'
-                flash(f"Welcome, {user[1]} (Controller)!", "success")
-                return redirect(url_for('controller_dashboard'))
+            if user:
+                stored_hash = user[2]
+                # --- START OF ROBUSTNESS CHANGE: Explicitly decode if it's a bytes object ---
+                if isinstance(stored_hash, bytes):
+                    try:
+                        stored_hash = stored_hash.decode('utf-8')
+                    except UnicodeDecodeError:
+                        print(f"Warning: Could not decode stored hash from bytes: {stored_hash}")
+                        stored_hash = "" # Treat as invalid if decoding fails
+                # --- END OF ROBUSTNESS CHANGE ---
+
+                # Now check if the hash is a valid string and then compare
+                if isinstance(stored_hash, str) and stored_hash.strip() and check_password_hash(stored_hash, password):
+                    session['user_id'] = user[0]
+                    session['username'] = user[1]
+                    session['role'] = user[3] # Should always be 'controller'
+                    flash(f"Welcome, {user[1]} (Controller)!", "success")
+                    return redirect(url_for('controller_dashboard'))
+                else:
+                    flash("Invalid username or password. Please try again.", "danger")
             else:
-                flash("Invalid username or password. Please try again.", "danger")
+                flash("Invalid username or password. Please try again.", "danger") # User not found
         else:
             flash("Database connection error. Please try again later.", "danger")
     return render_template('login.html')
