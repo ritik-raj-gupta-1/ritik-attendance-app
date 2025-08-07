@@ -11,11 +11,10 @@ DROP TABLE IF EXISTS students CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS daily_attendance_ips CASCADE;
 
--- Table for the single controller user
+-- Table for the single controller user (no password column here)
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL, -- VARCHAR(255) is appropriate for storing hashed passwords
     role VARCHAR(20) NOT NULL DEFAULT 'controller' CHECK (role = 'controller') -- Only 'controller' role
 );
 
@@ -69,10 +68,9 @@ CREATE TABLE daily_attendance_ips (
     UNIQUE (ip_address, date)
 );
 
--- Insert the single controller user with a hashed password
--- 'controller_pass_123' hashes to '$2b$12$KkQ/z8OQJb4.xHl.JqO11uK/vI.7r7j0W.d/p.e/W.d'
-INSERT INTO users (username, password, role) VALUES
-('controller', '$2b$12$KkQ/z8OQJb4.xHl.JqO11uK/vI.7r7j0W.d/p.e/W.d', 'controller');
+-- Insert the single controller user (no password needed here anymore)
+INSERT INTO users (username, role) VALUES
+('controller', 'controller');
 
 -- Insert the single class data for BA - Anthropology
 -- Location: 23°49'44"N 78°46'30"E -> Decimal: 23.828889, 78.775000

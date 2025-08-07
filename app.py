@@ -2,7 +2,6 @@ import os
 import psycopg2
 from datetime import datetime, timedelta, timezone
 from flask import Flask, render_template, request, redirect, session, url_for, flash, jsonify, send_file
-from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import secrets # For generating session tokens
 import math # For geofencing calculation
@@ -10,6 +9,13 @@ import io # For CSV export
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24) # Keep this secure and random
+
+# --- HARDCODED CONTROLLER CREDENTIALS ---
+# !!! WARNING: NOT RECOMMENDED FOR PRODUCTION ENVIRONMENTS !!!
+# This is for a simplified, fixed-value verification as requested.
+CONTROLLER_USERNAME = "controller"
+CONTROLLER_PASSWORD = "controller_pass_123"
+# --- END HARDCODED CREDENTIALS ---
 
 # Database connection details from Render
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -55,43 +61,35 @@ def home():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Handles controller login."""
+    """Handles controller login with simple string comparison."""
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        conn = get_db_connection()
-        if conn:
-            cur = conn.cursor()
-            # Only check for 'controller' role
-            cur.execute("SELECT id, username, password, role FROM users WHERE username = %s AND role = 'controller'", (username,))
-            user = cur.fetchone()
-            cur.close()
-            conn.close()
+        
+        # --- SIMPLE LOGIN VERIFICATION ---
+        if username == CONTROLLER_USERNAME and password == CONTROLLER_PASSWORD:
+            conn = get_db_connection()
+            if conn:
+                cur = conn.cursor()
+                # Retrieve controller ID and role from DB (assuming 'controller' user exists)
+                cur.execute("SELECT id, username, role FROM users WHERE username = %s AND role = 'controller'", (username,))
+                user_data = cur.fetchone()
+                cur.close()
+                conn.close()
 
-            if user:
-                stored_hash = user[2]
-                # --- START OF ROBUSTNESS CHANGE: Explicitly decode if it's a bytes object ---
-                if isinstance(stored_hash, bytes):
-                    try:
-                        stored_hash = stored_hash.decode('utf-8')
-                    except UnicodeDecodeError:
-                        print(f"Warning: Could not decode stored hash from bytes: {stored_hash}")
-                        stored_hash = "" # Treat as invalid if decoding fails
-                # --- END OF ROBUSTNESS CHANGE ---
-
-                # Now check if the hash is a valid string and then compare
-                if isinstance(stored_hash, str) and stored_hash.strip() and check_password_hash(stored_hash, password):
-                    session['user_id'] = user[0]
-                    session['username'] = user[1]
-                    session['role'] = user[3] # Should always be 'controller'
-                    flash(f"Welcome, {user[1]} (Controller)!", "success")
+                if user_data:
+                    session['user_id'] = user_data[0]
+                    session['username'] = user_data[1]
+                    session['role'] = user_data[2] # Should always be 'controller'
+                    flash(f"Welcome, {user_data[1]} (Controller)!", "success")
                     return redirect(url_for('controller_dashboard'))
                 else:
-                    flash("Invalid username or password. Please try again.", "danger")
+                    # This case should ideally not happen if database_setup.sql runs correctly
+                    flash("Controller user not found in database. Please contact support.", "danger")
             else:
-                flash("Invalid username or password. Please try again.", "danger") # User not found
+                flash("Database connection error. Please try again later.", "danger")
         else:
-            flash("Database connection error. Please try again later.", "danger")
+            flash("Invalid username or password. Please try again.", "danger")
     return render_template('login.html')
 
 @app.route('/logout')
@@ -659,10 +657,13 @@ def api_update_attendance_record():
         conn.close()
 
 # Utility route to generate password hashes (for local use, remove in production)
+# This route is no longer needed with hardcoded credentials, but keeping it as a utility example.
 @app.route('/generate_hash/<password_text>')
 def generate_hash_route(password_text):
-    hashed_password = generate_password_hash(password_text)
-    return f"Hashed password for '{password_text}': {hashed_password}"
+    # This function now requires werkzeug.security, which is removed from imports.
+    # If you need this utility, you'd need to re-add the import and bcrypt to requirements.txt
+    # For this simplified app, it's best to remove this route entirely for clarity.
+    return "Password hashing utility is not active in this simplified version."
 
 if __name__ == '__main__':
     # This block is for local development only.

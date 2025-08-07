@@ -1,6 +1,4 @@
-    Flask
-    psycopg2-binary
-    gunicorn
-    werkzeug
-    bcrypt
-    
+Flask
+psycopg2-binary
+gunicorn
+werkzeug
