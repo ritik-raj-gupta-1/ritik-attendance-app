@@ -63,30 +63,40 @@ document.addEventListener('DOMContentLoaded', function() {
     function hideConfirmationModal() {
         if (confirmationModal) {
             confirmationModal.style.display = 'none';
-            pendingDeleteDate = null; // Clear pending data
+            // IMPORTANT: pendingDeleteDate is NOT nulled here anymore.
+            // It is nulled after the action is processed or explicitly when needed.
             console.log('Confirmation modal hidden.');
         }
     }
 
     // Attach event listeners for the confirmation modal
     if (modalCloseBtn) {
-        modalCloseBtn.addEventListener('click', hideConfirmationModal);
+        modalCloseBtn.addEventListener('click', () => {
+            pendingDeleteDate = null; // Clear if user closes via X
+            hideConfirmationModal();
+        });
         console.log('Modal close button listener attached.');
     }
     if (confirmNoBtn) {
-        confirmNoBtn.addEventListener('click', hideConfirmationModal);
+        confirmNoBtn.addEventListener('click', () => {
+            pendingDeleteDate = null; // Clear if user clicks No
+            hideConfirmationModal();
+        });
         console.log('Confirm No button listener attached.');
     }
     if (confirmYesBtn) {
         confirmYesBtn.addEventListener('click', async function() {
-            console.log('--- CONFIRM YES BUTTON CLICKED ---'); // NEW: Critical log here!
+            console.log('--- CONFIRM YES BUTTON CLICKED ---');
+            const dateToProcess = pendingDeleteDate; // Capture the date BEFORE hiding the modal
             hideConfirmationModal(); // This will log 'Confirmation modal hidden.'
-            if (pendingDeleteDate) {
-                console.log('Proceeding with deletion for date:', pendingDeleteDate); // This log should appear now
-                await deleteDailyAttendance(pendingDeleteDate);
+
+            if (dateToProcess) { // Use the captured date
+                console.log('Proceeding with deletion for date:', dateToProcess);
+                await deleteDailyAttendance(dateToProcess);
             } else {
-                console.warn('pendingDeleteDate is null. Cannot proceed with deletion.');
+                console.warn('pendingDeleteDate was null at time of confirmation. Cannot proceed with deletion.');
             }
+            pendingDeleteDate = null; // Clear after processing
         });
         console.log('Confirm Yes button listener attached.');
     } else {
@@ -96,6 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Click outside modal to close
     window.addEventListener('click', function(event) {
         if (event.target == confirmationModal) {
+            pendingDeleteDate = null; // Clear if user clicks outside
             hideConfirmationModal();
         }
     });
