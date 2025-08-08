@@ -29,7 +29,7 @@ CREATE TABLE students (
 -- Table for class data (only BA - Anthropology this time)
 CREATE TABLE classes (
     id SERIAL PRIMARY KEY,
-    class_name VARCHAR(100) NOT NULL,
+    class_name VARCHAR(100) UNIQUE NOT NULL, -- Added UNIQUE constraint for class_name
     controller_id INTEGER, -- Renamed from teacher_id to reflect single controller
     geofence_lat REAL,
     geofence_lon REAL,
@@ -57,7 +57,8 @@ CREATE TABLE attendance_records (
     timestamp TIMESTAMPTZ NOT NULL,
     latitude REAL,
     longitude REAL,
-    ip_address TEXT
+    ip_address TEXT,
+    UNIQUE (session_id, student_id) -- CRITICAL: Ensures unique attendance per student per session
 );
 
 -- Table to track IP addresses for a given day (for attendance security - one submission per IP per day)
@@ -70,22 +71,24 @@ CREATE TABLE daily_attendance_ips (
 
 -- Insert the single controller user (no password needed here anymore)
 INSERT INTO users (username, role) VALUES
-('controller', 'controller');
+('controller', 'controller') ON CONFLICT (username) DO NOTHING; -- Use ON CONFLICT to make it idempotent
 
 -- Insert the single class data for BA - Anthropology
 -- Location: 23°49'44"N 78°46'30"E -> Decimal: 23.828889, 78.775000
--- Radius: 80 meters (CHANGED FOR TESTING)
+-- Radius: 80 meters (MATCHES frontend main.js)
 INSERT INTO classes (class_name, controller_id, geofence_lat, geofence_lon, geofence_radius) VALUES
-('BA - Anthropology', (SELECT id FROM users WHERE username = 'controller'), 23.828889, 78.775000, 80);
+('BA - Anthropology', (SELECT id FROM users WHERE username = 'controller'), 23.828889, 78.775000, 80)
+ON CONFLICT (class_name) DO NOTHING; -- Use ON CONFLICT to make it idempotent
 
--- Insert all BA student data (only BA students this time)
+
+-- Insert all BA student data (77 students)
 INSERT INTO students (enrollment_no, name, batch) VALUES
 ('Y24120001', 'ANSHUL TAMRAKAR', 'BA'),
 ('Y24120002', 'KHUSHVEER SINGH SURYA', 'BA'),
 ('Y24120003', 'SHREYASHI JAIN', 'BA'),
-('Y24120041', 'VIJAY KUMAR ', 'BA'),
-('Y24120060', 'AARYA GOANTIYA ', 'BA'),
-('Y24120061', 'ANIYA PARTE ', 'BA'),
+('Y24120041', 'VIJAY KUMAR', 'BA'),
+('Y24120060', 'AARYA GOANTIYA', 'BA'),
+('Y24120061', 'ANIYA PARTE', 'BA'),
 ('Y24120062', 'SATYAM SEN', 'BA'),
 ('Y24120087', 'AGRATI AGRAWAL', 'BA'),
 ('Y24120088', 'SHUBHAM CHOUBEY', 'BA'),
@@ -99,7 +102,7 @@ INSERT INTO students (enrollment_no, name, batch) VALUES
 ('Y24120185', 'RAGINI GOUND', 'BA'),
 ('Y24120187', 'RAMPAL SINGH THAKUR', 'BA'),
 ('Y24120188', 'SHREYA THAKUR', 'BA'),
-    ('Y24120203', 'ABHISHEK YADAV', 'BA'),
+('Y24120203', 'ABHISHEK YADAV', 'BA'),
 ('Y24120204', 'ADITYA SINGH', 'BA'),
 ('Y24120205', 'AVINASH AHIRWAR', 'BA'),
 ('Y24120206', 'HARSH KHANGAR', 'BA'),
@@ -156,4 +159,5 @@ INSERT INTO students (enrollment_no, name, batch) VALUES
 ('Y24120697', 'JIGYASHA SHARMA', 'BA'),
 ('Y24130025', 'RAKSHA SINGH', 'BA'),
 ('Y24130066', 'AASHIYA RANGREJ', 'BA'),
-('Y24130071', 'AMAN GHARU', 'BA');
+('Y24130071', 'AMAN GHARU', 'BA')
+ON CONFLICT (enrollment_no) DO NOTHING; -- Use ON CONFLICT to make it idempotent
