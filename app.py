@@ -149,7 +149,7 @@ def controller_dashboard():
                     'class_name': 'BA - Anthropology', # Hardcode as only one class
                     'remaining_time': remaining_time
                 }
-        
+            
         # Fetch all past and active sessions for the BA - Anthropology class for editing
         if ba_anthropology_class_id:
             cur.execute("""
@@ -211,7 +211,7 @@ def start_session():
 
         session_token = secrets.token_hex(16) # Generate a secure random token
         start_time = datetime.now(timezone.utc)
-        end_time = start_time + timedelta(minutes=5) # Session lasts for 90 minutes (can be adjusted)
+        end_time = start_time + timedelta(minutes=5) # Session lasts for 5 minutes (for testing)
 
         cur.execute(
             "INSERT INTO attendance_sessions (class_id, controller_id, session_token, start_time, end_time, is_active) VALUES (%s, %s, %s, %s, %s, TRUE)",
@@ -243,12 +243,11 @@ def end_session(session_id):
             (datetime.now(timezone.utc), session_id, session['user_id'])
         )
         conn.commit()
-        flash("Session ended.", "info")
-        return jsonify({"success": True, "message": "Session ended successfully."})
+        # No flash here, as this is an AJAX endpoint. Frontend will handle status.
+        return jsonify({"success": True, "message": "Session ended successfully.", "category": "info"})
     except Exception as e:
         print(f"Error ending session: {e}")
-        flash("An error occurred while ending the session.", "danger")
-        return jsonify({"success": False, "message": "An error occurred while ending the session."})
+        return jsonify({"success": False, "message": "An error occurred while ending the session.", "category": "error"})
     finally:
         cur.close()
         conn.close()
@@ -258,20 +257,17 @@ def mark_attendance():
     """Allows students to mark their attendance."""
     if request.method == 'POST':
         enrollment_no = request.form.get('enrollment_no')
-        session_id = request.form.get('session_id') # This is the session ID
+        session_id = request.form.get('session_id')
         latitude = request.form.get('latitude')
         longitude = request.form.get('longitude')
-        # --- START OF NEW CODE ---
-        # Get the allowed_radius sent from the frontend
+        # Get the allowed_radius sent from the frontend (this will be the fixed 80m)
         allowed_radius_str = request.form.get('allowed_radius')
         allowed_radius = float(allowed_radius_str) if allowed_radius_str else None
-        # --- END OF NEW CODE ---
         ip_address = request.remote_addr # Get client IP address
 
         conn = get_db_connection()
         if not conn:
-            flash("Database connection failed.", "danger")
-            return redirect(url_for('mark_attendance')) # Redirect to student page
+            return jsonify({"success": False, "message": "Database connection failed.", "category": "error"})
         cur = conn.cursor()
         
         try:
@@ -286,46 +282,38 @@ def mark_attendance():
             session_info = cur.fetchone()
 
             if not session_info:
-                flash("Invalid, inactive, or expired session for BA - Anthropology.", "danger")
-                return redirect(url_for('mark_attendance'))
+                return jsonify({"success": False, "message": "Invalid, inactive, or expired session for BA - Anthropology.", "category": "danger"})
 
-            class_id, geofence_lat, geofence_lon, geofence_radius_from_db = session_info # Renamed variable
+            class_id, geofence_lat, geofence_lon, geofence_radius_from_db = session_info # geofence_radius_from_db is now unused but kept for clarity
 
             # 2. Get student ID from enrollment number and verify batch is BA
             cur.execute("SELECT id, batch FROM students WHERE enrollment_no = %s AND batch = 'BA'", (enrollment_no,))
             student_result = cur.fetchone()
             if not student_result:
-                flash("Invalid enrollment number or not a BA student.", "danger")
-                return redirect(url_for('mark_attendance'))
+                return jsonify({"success": False, "message": "Invalid enrollment number or not a BA student.", "category": "danger"})
             student_id = student_result[0]
 
             # 3. Check if student already marked attendance for this session
             cur.execute("SELECT COUNT(*) FROM attendance_records WHERE session_id = %s AND student_id = %s", (session_id, student_id))
             if cur.fetchone()[0] > 0:
-                flash("Attendance already marked for this session.", "warning")
-                return redirect(url_for('mark_attendance'))
+                return jsonify({"success": False, "message": "Attendance already marked for this session.", "category": "warning"})
 
-            # 4. Geofence check
-            # --- START OF MODIFIED CODE ---
-            if latitude and longitude and geofence_lat and geofence_lon and allowed_radius is not None:
+            # 4. Geofence check using the 'allowed_radius' from the frontend
+            if latitude and longitude and geofence_lat is not None and geofence_lon is not None and allowed_radius is not None:
                 user_lat = float(latitude)
                 user_lon = float(longitude)
                 
                 distance = haversine_distance(user_lat, user_lon, geofence_lat, geofence_lon)
-                if distance > allowed_radius: # Use allowed_radius from frontend
-                    flash(f"You are {distance:.2f} meters away. Attendance can only be marked within {allowed_radius} meters of the Anthropology Department based on your GPS signal quality.", "danger")
-                    return redirect(url_for('mark_attendance'))
+                if distance > allowed_radius: # Use allowed_radius from frontend (fixed 80m)
+                    return jsonify({"success": False, "message": f"You are {distance:.2f} meters away. Attendance can only be marked within {allowed_radius} meters of the Anthropology Department.", "category": "danger"})
             else:
-                flash("Location data or allowed radius missing for geofence check. Please enable location services.", "danger")
-                return redirect(url_for('mark_attendance'))
-            # --- END OF MODIFIED CODE ---
+                return jsonify({"success": False, "message": "Location data or allowed radius missing for geofence check. Please enable location services.", "category": "danger"})
 
             # 5. IP Address check (preventing multiple marks from same IP on same day)
             today_date = datetime.now(timezone.utc).date()
             cur.execute("SELECT COUNT(*) FROM daily_attendance_ips WHERE ip_address = %s AND date = %s", (ip_address, today_date))
             if cur.fetchone()[0] > 0:
-                flash("Attendance already marked from this IP address today. Only one submission per IP per day.", "warning")
-                return redirect(url_for('mark_attendance'))
+                return jsonify({"success": False, "message": "Attendance already marked from this IP address today. Only one submission per IP per day.", "category": "warning"})
 
             # 6. Mark attendance
             timestamp = datetime.now(timezone.utc)
@@ -341,16 +329,14 @@ def mark_attendance():
             )
             
             conn.commit()
-            flash("Attendance marked successfully!", "success")
+            return jsonify({"success": True, "message": "Attendance marked successfully!", "category": "success"})
 
         except Exception as e:
             print(f"Error marking attendance: {e}")
-            flash("An error occurred while marking attendance. Please try again.", "danger")
+            return jsonify({"success": False, "message": "An error occurred while marking attendance. Please try again.", "category": "error"})
         finally:
             cur.close()
             conn.close()
-
-        return redirect(url_for('mark_attendance'))
     
     # For GET request, display active BA - Anthropology session for students
     conn = get_db_connection()
@@ -385,7 +371,7 @@ def mark_attendance():
                     }
         except Exception as e:
             print(f"Error fetching active session for student: {e}")
-            flash("Could not fetch active attendance session.", "danger")
+            # Do not flash here, as this is a GET request and will be handled by frontend JS
         finally:
             cur.close()
             conn.close()
@@ -456,36 +442,71 @@ def attendance_report():
         return redirect(url_for('controller_dashboard'))
     cur = conn.cursor()
 
-    attendance_data = []
+    report_data = []
     try:
         # Get the BA - Anthropology class ID
         cur.execute("SELECT id FROM classes WHERE class_name = 'BA - Anthropology'")
         ba_anthropology_class_id = cur.fetchone()[0]
 
-        # Fetch attendance records only for BA - Anthropology students
+        # Get all BA students, ordered by enrollment number
+        cur.execute("SELECT id, enrollment_no, name FROM students WHERE batch = 'BA' ORDER BY enrollment_no")
+        all_students = [{'id': s[0], 'enrollment_no': s[1], 'name': s[2]} for s in cur.fetchall()]
+
+        # Get all attendance sessions for BA - Anthropology, ordered by start time
         cur.execute("""
-            SELECT s.enrollment_no, s.name, s.batch, c.class_name, asess.start_time, ar.timestamp, ar.latitude, ar.longitude, ar.ip_address
-            FROM attendance_records ar
-            JOIN students s ON ar.student_id = s.id
-            JOIN attendance_sessions asess ON ar.session_id = asess.id
-            JOIN classes c ON asess.class_id = c.id
-            WHERE s.batch = 'BA' AND c.id = %s
-            ORDER BY ar.timestamp DESC
+            SELECT id, start_time
+            FROM attendance_sessions
+            WHERE class_id = %s
+            ORDER BY start_time ASC
         """, (ba_anthropology_class_id,))
-        raw_data = cur.fetchall()
-        
-        for row in raw_data:
-            attendance_data.append({
-                'enrollment_no': row[0],
-                'student_name': row[1],
-                'student_batch': row[2],
-                'class_name': row[3],
-                'session_start_time': row[4].strftime('%Y-%m-%d %H:%M:%S %Z'),
-                'marked_time': row[5].strftime('%Y-%m-%d %H:%M:%S %Z'),
-                'latitude': row[6],
-                'longitude': row[7],
-                'ip_address': row[8]
-            })
+        all_sessions = [{'id': s[0], 'start_time': s[1].date()} for s in cur.fetchall()]
+
+        # Determine the date range for the report
+        min_date = min([s['start_time'] for s in all_sessions]) if all_sessions else datetime.now(timezone.utc).date()
+        max_date = datetime.now(timezone.utc).date() # Up to today
+
+        current_date = min_date
+        while current_date <= max_date:
+            daily_entry = {
+                'date': current_date.strftime('%Y-%m-%d'),
+                'students': []
+            }
+            
+            # Find sessions that occurred on the current date
+            sessions_on_this_date = [s for s in all_sessions if s['start_time'] == current_date]
+
+            # If it's a weekend (Saturday or Sunday) and no sessions were held, mark as Holiday
+            if current_date.weekday() in [5, 6] and not sessions_on_this_date: # 5=Saturday, 6=Sunday
+                for student in all_students:
+                    daily_entry['students'].append({
+                        'enrollment_no': student['enrollment_no'],
+                        'name': student['name'],
+                        'status': 'Holiday'
+                    })
+            else:
+                # Fetch attendance records for all sessions on this date
+                attended_student_ids_on_date = set()
+                if sessions_on_this_date:
+                    session_ids_on_date = tuple([s['id'] for s in sessions_on_this_date])
+                    # Use IN clause for multiple session IDs
+                    cur.execute(f"""
+                        SELECT DISTINCT student_id
+                        FROM attendance_records
+                        WHERE session_id IN %s
+                    """, (session_ids_on_date,))
+                    attended_student_ids_on_date.update(row[0] for row in cur.fetchall())
+
+                for student in all_students:
+                    status = 'Present' if student['id'] in attended_student_ids_on_date else 'Absent'
+                    daily_entry['students'].append({
+                        'enrollment_no': student['enrollment_no'],
+                        'name': student['name'],
+                        'status': status
+                    })
+            
+            report_data.append(daily_entry)
+            current_date += timedelta(days=1)
+
     except Exception as e:
         print(f"Error fetching attendance report: {e}")
         flash("An error occurred while fetching the attendance report.", "danger")
@@ -493,7 +514,63 @@ def attendance_report():
         cur.close()
         conn.close()
     
-    return render_template('attendance_report.html', attendance_data=attendance_data)
+    return render_template('attendance_report.html', report_data=report_data)
+
+@app.route('/delete_daily_attendance', methods=['POST'])
+@controller_required
+def delete_daily_attendance():
+    """Deletes all attendance records and daily IP logs for a specific date."""
+    data = request.get_json()
+    date_str = data.get('date')
+
+    if not date_str:
+        return jsonify({"success": False, "message": "Date not provided.", "category": "error"})
+
+    try:
+        # Convert date string to date object
+        date_to_delete = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({"success": False, "message": "Invalid date format. Use YYYY-MM-DD.", "category": "error"})
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection failed.", "category": "error"})
+    cur = conn.cursor()
+
+    try:
+        # Get the BA - Anthropology class ID
+        cur.execute("SELECT id FROM classes WHERE class_name = 'BA - Anthropology'")
+        ba_anthropology_class_id = cur.fetchone()[0]
+
+        # Find all session IDs for the given date for BA - Anthropology class
+        cur.execute("""
+            SELECT id FROM attendance_sessions
+            WHERE class_id = %s AND DATE(start_time) = %s
+        """, (ba_anthropology_class_id, date_to_delete))
+        session_ids_on_date = [row[0] for row in cur.fetchall()]
+
+        if not session_ids_on_date:
+            return jsonify({"success": False, "message": f"No attendance sessions found for {date_str} for BA - Anthropology.", "category": "info"})
+
+        # Delete attendance records associated with these sessions
+        cur.execute("DELETE FROM attendance_records WHERE session_id IN %s", (tuple(session_ids_on_date),))
+        deleted_records_count = cur.rowcount
+
+        # Delete the daily IP log for this date
+        cur.execute("DELETE FROM daily_attendance_ips WHERE date = %s", (date_to_delete,))
+        deleted_ips_count = cur.rowcount
+
+        conn.commit()
+        return jsonify({"success": True, "message": f"Successfully deleted {deleted_records_count} attendance records and {deleted_ips_count} IP logs for {date_str}.", "category": "success"})
+
+    except Exception as e:
+        conn.rollback() # Rollback in case of error
+        print(f"Error deleting daily attendance: {e}")
+        return jsonify({"success": False, "message": "An error occurred while deleting daily attendance.", "category": "error"})
+    finally:
+        cur.close()
+        conn.close()
+
 
 @app.route('/export_attendance_csv')
 @controller_required
@@ -551,7 +628,6 @@ def export_attendance_csv():
     except Exception as e:
         print(f"Error exporting CSV: {e}")
         flash("An error occurred during CSV export.", "danger")
-        return redirect(url_for('attendance_report'))
     finally:
         cur.close()
         conn.close()
@@ -597,7 +673,7 @@ def api_get_session_students_for_edit(session_id):
     """API endpoint to get all BA students for a session, including their attendance status for editing."""
     conn = get_db_connection()
     if not conn:
-        return jsonify([]) # Return empty list on connection failure
+        return jsonify({"success": False, "message": "Database connection failed."}) # Return error message
     cur = conn.cursor()
     try:
         # Get all BA students
@@ -617,10 +693,10 @@ def api_get_session_students_for_edit(session_id):
                 'batch': student[3],
                 'is_present': student[0] in attended_student_ids
             })
-        return jsonify(students_data)
+        return jsonify({"success": True, "students": students_data}) # Wrap in success object
     except Exception as e:
         print(f"Error fetching session students for edit: {e}")
-        return jsonify([])
+        return jsonify({"success": False, "message": "An error occurred while fetching student data."}) # Return error message
     finally:
         cur.close()
         conn.close()
@@ -641,11 +717,9 @@ def api_update_attendance_record():
     try:
         if is_present:
             # Insert if not exists, or do nothing if already present
-            # We also record the timestamp, latitude, longitude, and IP if available,
-            # but for manual edits, we can use current time and mark location/IP as N/A or default.
-            # For simplicity, we'll use current timestamp and null for location/IP for manual edits.
+            # For manual edits, we use current timestamp and mark location/IP as N/A or default.
             cur.execute(
-                "INSERT INTO attendance_records (session_id, student_id, timestamp, latitude, longitude, ip_address) VALUES (%s, %s, %s, NULL, NULL, 'Manual_Edit')",
+                "INSERT INTO attendance_records (session_id, student_id, timestamp, latitude, longitude, ip_address) VALUES (%s, %s, %s, NULL, NULL, 'Manual_Edit') ON CONFLICT (session_id, student_id) DO NOTHING",
                 (session_id, student_id, datetime.now(timezone.utc))
             )
         else:
@@ -655,10 +729,10 @@ def api_update_attendance_record():
                 (session_id, student_id)
             )
         conn.commit()
-        return jsonify({"success": True, "message": "Attendance updated."})
+        return jsonify({"success": True, "message": "Attendance updated.", "category": "success"})
     except Exception as e:
         print(f"Error updating attendance record: {e}")
-        return jsonify({"success": False, "message": "An error occurred while updating attendance."})
+        return jsonify({"success": False, "message": "An error occurred while updating attendance.", "category": "error"})
     finally:
         cur.close()
         conn.close()
@@ -676,3 +750,4 @@ if __name__ == '__main__':
     # This block is for local development only.
     # For Render, the Gunicorn command in Procfile runs the app.
     app.run(debug=True)
+

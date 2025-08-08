@@ -1,75 +1,88 @@
-// main.js
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOMContentLoaded fired: main.js loaded');
+// static/main.js
 
-    // Get common elements
-    const attendanceForm = document.getElementById('attendance-form');
-    const enrollmentNoInput = document.getElementById('enrollment_no');
-    const studentNameDisplay = document.getElementById('student-name-display');
-    const markBtn = document.getElementById('mark-btn');
-    
-    // Global status message div (present on admin_dashboard, attendance_report, edit_attendance, student_attendance)
-    const statusMessageDiv = document.getElementById('status-message');
+// Fixed radius for GPS location check (in meters).
+// This value will be sent to the backend for server-side validation.
+const FIXED_RADIUS_METERS = 80; // The fixed radius for attendance marking
 
-    // Custom Confirmation Modal Elements (present in admin_dashboard.html and now attendance_report.html)
-    const confirmationModal = document.getElementById('confirmation-modal');
-    const confirmMessage = document.getElementById('confirm-message');
-    const confirmYesBtn = document.getElementById('confirm-yes');
-    const confirmNoBtn = document.getElementById('confirm-no');
-    const modalCloseBtn = confirmationModal ? confirmationModal.querySelector('.close-button') : null;
+// DOM elements
+const enrollmentNoInput = document.getElementById('enrollment_no');
+const studentNameDisplay = document.getElementById('student-name-display');
+const markAttendanceButton = document.getElementById('mark-btn');
+const attendanceForm = document.getElementById('attendance-form');
+const timerStudentSpan = document.getElementById('timer-student');
 
-    let activeSessionId = null; // Stores the active session ID for student attendance
-    let pendingDeleteDate = null; // Stores the date to be deleted for confirmation modal
+// Global status message div
+const statusMessageDiv = document.getElementById('status-message');
 
-    /**
-     * Displays a temporary status message to the user.
-     * @param {string} message - The message to display.
-     * @param {string} type - The type of message (e.g., 'info', 'success', 'warning', 'error').
-     */
-    function showStatus(message, type) {
-        if (statusMessageDiv) {
-            statusMessageDiv.textContent = message;
-            statusMessageDiv.className = `status-message ${type}`; // Apply CSS class for styling
-            statusMessageDiv.style.display = 'block';
-            console.log(`Status (${type}): ${message}`); // Log status messages for debugging
-            setTimeout(() => {
-                statusMessageDiv.style.display = 'none';
-                statusMessageDiv.textContent = ''; // Clear message after hiding
-            }, 5000); // Hide after 5 seconds
-        } else {
-            console.warn('Status message div not found.');
+// Custom Confirmation Modal Elements (present on admin_dashboard.html and attendance_report.html)
+const confirmationModal = document.getElementById('confirmation-modal');
+const confirmMessage = document.getElementById('confirm-message');
+const confirmYesBtn = document.getElementById('confirm-yes');
+const confirmNoBtn = document.getElementById('confirm-no');
+const modalCloseBtn = confirmationModal ? confirmationModal.querySelector('.close-button') : null;
+
+let pendingDeleteDate = null; // Stores the date to be deleted for confirmation modal
+
+/**
+ * Displays a status message to the user.
+ * @param {string} message - The message to display.
+ * @param {string} type - 'success', 'error', 'info', or 'warning' for styling.
+ */
+function showStatusMessage(message, type) {
+    if (statusMessageDiv) {
+        statusMessageDiv.textContent = message;
+        statusMessageDiv.className = 'status-message'; // Reset classes
+        if (type) {
+            statusMessageDiv.classList.add(type);
         }
+        statusMessageDiv.style.display = 'block'; // Ensure it's visible
+        console.log(`Status (${type}): ${message}`);
+        // Hide after 5 seconds for transient messages
+        setTimeout(() => {
+            clearStatusMessage();
+        }, 5000);
     }
+}
 
-    /**
-     * Shows the custom confirmation modal.
-     * @param {string} message - The message to display in the modal.
-     * @param {string} dataToConfirm - Data associated with the confirmation (e.g., date for deletion).
-     */
-    function showConfirmationModal(message, dataToConfirm) {
-        if (confirmationModal && confirmMessage) {
-            confirmMessage.textContent = message;
-            pendingDeleteDate = dataToConfirm; // Store the data
-            confirmationModal.style.display = 'block';
-            console.log('Confirmation modal shown for:', dataToConfirm);
-        } else {
-            console.error('Confirmation modal elements not found!');
-        }
+/**
+ * Clears the status message.
+ */
+function clearStatusMessage() {
+    if (statusMessageDiv) {
+        statusMessageDiv.textContent = '';
+        statusMessageDiv.className = 'status-message';
+        statusMessageDiv.style.display = 'none';
     }
+}
 
-    /**
-     * Hides the custom confirmation modal.
-     */
-    function hideConfirmationModal() {
-        if (confirmationModal) {
-            confirmationModal.style.display = 'none';
-            // IMPORTANT: pendingDeleteDate is NOT nulled here anymore.
-            // It is nulled after the action is processed or explicitly when needed.
-            console.log('Confirmation modal hidden.');
-        }
+/**
+ * Shows the custom confirmation modal.
+ * @param {string} message - The message to display in the modal.
+ * @param {string} dataToConfirm - Data associated with the confirmation (e.g., date for deletion).
+ */
+function showConfirmationModal(message, dataToConfirm) {
+    if (confirmationModal && confirmMessage) {
+        confirmMessage.textContent = message;
+        pendingDeleteDate = dataToConfirm; // Store the data
+        confirmationModal.style.display = 'block';
+        console.log('Confirmation modal shown for:', dataToConfirm);
+    } else {
+        console.error('Confirmation modal elements not found!');
     }
+}
 
-    // Attach event listeners for the confirmation modal
+/**
+ * Hides the custom confirmation modal.
+ */
+function hideConfirmationModal() {
+    if (confirmationModal) {
+        confirmationModal.style.display = 'none';
+        console.log('Confirmation modal hidden.');
+    }
+}
+
+// Attach event listeners for the confirmation modal
+document.addEventListener('DOMContentLoaded', () => {
     if (modalCloseBtn) {
         modalCloseBtn.addEventListener('click', () => {
             pendingDeleteDate = null; // Clear if user closes via X
@@ -120,22 +133,22 @@ document.addEventListener('DOMContentLoaded', function() {
             const sessionId = this.dataset.sessionId;
             
             console.log('End Session button clicked for session:', sessionId);
-            showStatus('Ending session...', 'info');
+            showStatusMessage('Ending session...', 'info');
             try {
                 const response = await fetch(`/end_session/${sessionId}`, {
                     method: 'POST'
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showStatus(data.message, 'success');
+                    showStatusMessage(data.message, data.category);
                     // Reload to update dashboard status after a short delay
                     setTimeout(() => window.location.reload(), 1000); 
                 } else {
-                    showStatus(data.message, 'error');
+                    showStatusMessage(data.message, data.category);
                 }
             } catch (error) {
                 console.error('Error ending session:', error);
-                showStatus('An error occurred while ending the session.', 'error');
+                showStatusMessage('An error occurred while ending the session.', 'error');
             }
         });
     });
@@ -145,6 +158,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof window.activeSessionData !== 'undefined' && window.activeSessionData && window.activeSessionData.id) {
         console.log('Active session data found for dashboard timer.');
         let remainingTimeController = window.activeSessionData.remaining_time;
+        // Find the specific timer element for the active session ID
         let timerDisplayController = document.getElementById(`timer-${window.activeSessionData.id}`);
 
         if (timerDisplayController && remainingTimeController > 0) {
@@ -182,7 +196,7 @@ document.addEventListener('DOMContentLoaded', function() {
      * @param {string} date - The date (YYYY-MM-DD) for which to delete attendance.
      */
     async function deleteDailyAttendance(date) {
-        showStatus(`Deleting attendance for ${date}...`, 'info');
+        showStatusMessage(`Deleting attendance for ${date}...`, 'info');
         console.log(`Attempting to delete attendance for date: ${date}`);
         try {
             const response = await fetch('/delete_daily_attendance', {
@@ -196,9 +210,9 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Fetch response received:', response);
             
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('HTTP error! Status:', response.status, 'Response text:', errorText);
-                showStatus(`Error: ${response.status} - ${errorText.substring(0, 100)}`, 'error');
+                const errorData = await response.json(); // Assuming JSON error response
+                console.error('HTTP error! Status:', response.status, 'Response data:', errorData);
+                showStatusMessage(errorData.message || `Error: ${response.status} - Failed to delete.`, errorData.category || 'error');
                 return;
             }
 
@@ -206,73 +220,91 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Delete attendance API response data:', data);
 
             if (data.success) {
-                showStatus(data.message, 'success');
+                showStatusMessage(data.message, data.category);
                 // Reload the page to reflect the deletion
                 setTimeout(() => window.location.reload(), 1000); 
             } else {
-                showStatus(data.message, 'error');
+                showStatusMessage(data.message, data.category);
             }
         } catch (error) {
             console.error('Error during deleteDailyAttendance fetch:', error);
-            showStatus('An unexpected network error occurred during deletion. Please check your connection.', 'error');
+            showStatusMessage('An unexpected network error occurred during deletion. Please check your connection.', 'error');
         }
     }
 
     // --- Student Attendance Page Logic ---
 
     // Function to fetch active BA session ID for the student attendance page
+    // This is now primarily handled by the server-side rendering in student_attendance.html
+    // and `window.activeSessionDataStudent`. This API call is less critical now.
     async function fetchActiveBASession() {
-        // Only run this on the student attendance page if the form exists
-        if (!attendanceForm) return; 
-        console.log('Fetching active BA session for student page...');
-
-        try {
-            const response = await fetch('/api/get_active_ba_session');
-            const data = await response.json();
-            if (data.success && data.session_id) {
-                activeSessionId = data.session_id;
-                if (markBtn) markBtn.disabled = false; // Enable button if session is active
-                showStatus('', 'info'); // Clear any previous status
-                console.log('Active session found:', activeSessionId);
-            } else {
-                if (markBtn) markBtn.disabled = true;
-                showStatus(data.message || 'No active BA attendance session found.', 'error');
-                console.log('No active session found:', data.message);
+        // Only run this if the activeSessionDataStudent was NOT provided by the server
+        if (typeof window.activeSessionDataStudent === 'undefined' || !window.activeSessionDataStudent || !window.activeSessionDataStudent.id) {
+            console.log('No active session data from server. Fetching active BA session for student page via API...');
+            try {
+                const response = await fetch('/api/get_active_ba_session');
+                const data = await response.json();
+                if (data.success && data.session_id) {
+                    // Update window.activeSessionDataStudent if fetched via API
+                    window.activeSessionDataStudent = { id: data.session_id, class_name: 'BA - Anthropology', remaining_time: 0 }; // Remaining time will be updated by timer
+                    if (markAttendanceButton) markAttendanceButton.disabled = false; // Enable button if session is active
+                    showStatusMessage('', 'info'); // Clear any previous status
+                    console.log('Active session found via API:', data.session_id);
+                } else {
+                    if (markAttendanceButton) markAttendanceButton.disabled = true;
+                    showStatusMessage(data.message || 'No active BA attendance session found.', 'error');
+                    console.log('No active session found via API:', data.message);
+                }
+            } catch (error) {
+                console.error('Error fetching active BA session:', error);
+                if (markAttendanceButton) markAttendanceButton.disabled = true;
+                showStatusMessage('Failed to load attendance session. Please try again later.', 'error');
             }
-        } catch (error) {
-            console.error('Error fetching active BA session:', error);
-            if (markBtn) markBtn.disabled = true;
-            showStatus('Failed to load attendance session. Please try again later.', 'error');
         }
     }
 
     // Call this on page load to check for active sessions (only for student page)
     if (attendanceForm) {
-        fetchActiveBASession();
+        // Initial check for active session data from server-side render
+        // If not present, try fetching via API (fallback)
+        if (typeof window.activeSessionDataStudent === 'undefined' || !window.activeSessionDataStudent || !window.activeSessionDataStudent.id) {
+            fetchActiveBASession();
+        }
 
         // Student page timer logic
         if (typeof window.activeSessionDataStudent !== 'undefined' && window.activeSessionDataStudent && window.activeSessionDataStudent.id) {
             console.log('Active session data found for student page timer.');
             let remainingTimeStudent = window.activeSessionDataStudent.remaining_time;
-            let timerDisplayStudent = document.getElementById('timer-student');
-
-            if (timerDisplayStudent && remainingTimeStudent > 0) {
+            
+            if (timerStudentSpan && remainingTimeStudent > 0) {
                 let studentTimer = setInterval(function() {
                     let minutes = Math.floor(remainingTimeStudent / 60);
                     let seconds = remainingTimeStudent % 60;
-                    timerDisplayStudent.innerHTML = `${minutes}m ${seconds}s`;
+                    timerStudentSpan.innerHTML = `${minutes}m ${seconds}s`;
 
                     if (remainingTimeStudent <= 0) {
                         clearInterval(studentTimer);
-                        timerDisplayStudent.innerHTML = "Session ended.";
+                        timerStudentSpan.innerHTML = "Session ended.";
                         // Optionally disable mark button if session ends
-                        if (markBtn) markBtn.disabled = true;
-                        showStatus('The attendance session has ended.', 'warning');
+                        if (markAttendanceButton) {
+                            markAttendanceButton.disabled = true;
+                            markAttendanceButton.textContent = "Session Expired";
+                        }
+                        if (enrollmentNoInput) {
+                            enrollmentNoInput.disabled = true;
+                        }
+                        showStatusMessage('The attendance session has ended.', 'warning');
                     }
                     remainingTimeStudent--;
                 }, 1000);
-            } else if (timerDisplayStudent) {
-                timerDisplayStudent.innerHTML = "No active session.";
+            } else if (timerStudentSpan) {
+                timerStudentSpan.innerHTML = "No active session.";
+            }
+        } else {
+             // If no active session from server, ensure button is disabled
+            if (markAttendanceButton) {
+                markAttendanceButton.disabled = true;
+                markAttendanceButton.textContent = "No Active Session";
             }
         }
     }
@@ -313,34 +345,30 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Attendance form submitted.');
 
             const enrollmentNo = enrollmentNoInput.value.trim();
+            const sessionId = window.activeSessionDataStudent ? window.activeSessionDataStudent.id : null;
             
-            if (!enrollmentNo || !activeSessionId) {
-                showStatus('Please enter your enrollment number and ensure a session is active.', 'error');
+            if (!enrollmentNo || !sessionId) {
+                showStatusMessage('Please enter your enrollment number and ensure a session is active.', 'error');
                 return;
             }
 
-            showStatus('Fetching your location...', 'info');
+            // Disable button to prevent multiple submissions
+            markAttendanceButton.disabled = true;
+            markAttendanceButton.textContent = "Marking...";
+            showStatusMessage('Getting your location...', 'info');
             console.log('Requesting geolocation...');
 
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     async position => {
-                        const { latitude, longitude, accuracy } = position.coords; // Get accuracy here!
-                        console.log(`Geolocation obtained: Lat ${latitude}, Lon ${longitude}, Accuracy: ${accuracy}m`);
+                        const { latitude, longitude } = position.coords;
+                        console.log(`Geolocation obtained: Lat ${latitude}, Lon ${longitude}`);
                         
-                        let allowedRadius;
-                        if (accuracy <= 40) {
-                            allowedRadius = 40;
-                            console.log(`GPS signal: Good (Accuracy: ${accuracy}m). Using radius: ${allowedRadius}m`);
-                        } else if (accuracy > 40 && accuracy <= 60) {
-                            allowedRadius = 60;
-                            console.log(`GPS signal: Weak (Accuracy: ${accuracy}m). Using radius: ${allowedRadius}m`);
-                        } else { // accuracy > 60
-                            allowedRadius = 90;
-                            console.log(`GPS signal: Too Weak (Accuracy: ${accuracy}m). Using radius: ${allowedRadius}m`);
-                        }
+                        // Always use the FIXED_RADIUS_METERS for allowed_radius
+                        const allowedRadius = FIXED_RADIUS_METERS;
+                        console.log(`Using fixed allowed radius: ${allowedRadius}m`);
 
-                        showStatus('Location fetched. Submitting attendance...', 'info');
+                        showStatusMessage('Location fetched. Submitting attendance...', 'info');
                         
                         try {
                             const response = await fetch('/mark_attendance', {
@@ -350,29 +378,34 @@ document.addEventListener('DOMContentLoaded', function() {
                                 },
                                 body: new URLSearchParams({
                                     enrollment_no: enrollmentNo,
-                                    session_id: activeSessionId,
+                                    session_id: sessionId,
                                     latitude: latitude,
                                     longitude: longitude,
-                                    allowed_radius: allowedRadius // Send the determined radius to the backend
+                                    allowed_radius: allowedRadius // Send the fixed radius to the backend
                                 })
                             });
                             const data = await response.json();
                             console.log('Attendance submission response:', data);
 
                             if (data.success) {
-                                showStatus(data.message, data.category);
+                                showStatusMessage(data.message, data.category);
                                 enrollmentNoInput.value = ''; // Clear input on success
                                 studentNameDisplay.textContent = ''; // Clear name display
                             } else {
-                                showStatus(data.message, data.category);
+                                showStatusMessage(data.message, data.category);
                             }
                         } catch (error) {
                             console.error('Error submitting attendance:', error);
-                            showStatus('An unexpected error occurred during submission. Please try again.', 'error');
+                            showStatusMessage('An unexpected error occurred during submission. Please try again.', 'error');
+                        } finally {
+                            markAttendanceButton.disabled = false; // Re-enable button
+                            markAttendanceButton.textContent = "Mark Attendance";
                         }
                     },
                     error => {
                         console.error('Geolocation Error:', error);
+                        markAttendanceButton.disabled = false; // Re-enable button
+                        markAttendanceButton.textContent = "Mark Attendance";
                         let errorMessage = 'Unable to fetch your location. Please enable location services.';
                         if (error.code === error.PERMISSION_DENIED) {
                             errorMessage = 'Location permission denied. Please allow location access to mark attendance.';
@@ -381,18 +414,19 @@ document.addEventListener('DOMContentLoaded', function() {
                         } else if (error.code === error.TIMEOUT) {
                             errorMessage = 'Fetching location timed out. Please try again.';
                         }
-                        showStatus(errorMessage, 'error');
+                        showStatusMessage(errorMessage, 'error');
                     },
                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 } // Geolocation options
                 );
             } else {
-                showStatus('Geolocation is not supported by your browser.', 'error');
+                showStatusMessage('Geolocation is not supported by your browser.', 'error');
+                markAttendanceButton.disabled = false; // Re-enable button
+                markAttendanceButton.textContent = "Mark Attendance";
             }
         });
     }
 
     // --- Edit Attendance Page Logic (for controller) ---
-    // Target the table by its ID 'attendance-table' as defined in edit_attendance.html
     const editAttendanceTable = document.getElementById('attendance-table'); 
     if (editAttendanceTable) {
         console.log('Edit Attendance page detected. Initializing...');
@@ -415,16 +449,14 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Fetching students for session:', sessionId);
 
         try {
-            console.log('Attempting fetch to /api/get_session_students_for_edit/' + sessionId);
             const response = await fetch(`/api/get_session_students_for_edit/${sessionId}`);
-            console.log('Fetch response received:', response);
-
+            
             if (!response.ok) { // Check if response status is 2xx
-                const errorText = await response.text();
-                console.error('HTTP error! Status:', response.status, 'Response text:', errorText);
+                const errorData = await response.json(); // Assuming JSON error response
+                console.error('HTTP error! Status:', response.status, 'Response data:', errorData);
                 if (loadingMessage) loadingMessage.style.display = 'none';
                 if (errorMessage) {
-                    errorMessage.textContent = `Error fetching data: ${response.status} - ${errorText.substring(0, 100)}`;
+                    errorMessage.textContent = errorData.message || `Error: ${response.status} - Failed to load students.`;
                     errorMessage.style.display = 'block';
                 }
                 tbody.innerHTML = '<tr><td colspan="3">Failed to load students.</td></tr>'; // Update table on fetch error
@@ -446,13 +478,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            if (data.length === 0) {
+            const students = data.students; // Access the 'students' array
+            if (!students || students.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="3">No BA students found or session data is unavailable.</td></tr>';
                 return;
             }
 
             tbody.innerHTML = ''; // Clear loading message before populating
-            data.forEach(student => {
+            students.forEach(student => {
                 const row = tbody.insertRow();
                 row.innerHTML = `
                     <td>${student.enrollment_no}</td>
@@ -492,7 +525,7 @@ document.addEventListener('DOMContentLoaded', function() {
      * @param {HTMLElement} checkboxElement - The checkbox element to revert its state on failure.
      */
     async function updateAttendanceRecord(sessionId, studentId, isPresent, checkboxElement) {
-        showStatus('Updating attendance...', 'info');
+        showStatusMessage('Updating attendance...', 'info');
         console.log(`Updating attendance record for session ${sessionId}, student ${studentId}, present: ${isPresent}`);
 
         try {
@@ -511,16 +544,16 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Update attendance response:', data);
 
             if (data.success) {
-                showStatus(data.message, 'success');
+                showStatusMessage(data.message, data.category);
             } else {
-                showStatus(data.message, 'error');
+                showStatusMessage(data.message, data.category);
                 if (checkboxElement) {
                     checkboxElement.checked = !isPresent; // Revert checkbox state on failure
                 }
             }
         } catch (error) {
-                console.error('Error updating attendance record:', error);
-            showStatus('An error occurred while updating the record.', 'error');
+            console.error('Error updating attendance record:', error);
+            showStatusMessage('An error occurred while updating the record.', 'error');
             if (checkboxElement) {
                 checkboxElement.checked = !isPresent; // Revert checkbox state on error
             }
