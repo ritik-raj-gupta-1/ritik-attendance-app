@@ -282,13 +282,15 @@ def start_session():
         start_time = datetime.now(timezone.utc)
         end_time = start_time + timedelta(minutes=10) # Session lasts for 10 minutes (configurable)
 
+        # CRITICAL FIX: Add RETURNING id to get the newly created session ID
         cur.execute(
-            "INSERT INTO attendance_sessions (class_id, controller_id, session_token, start_time, end_time, is_active) VALUES (%s, %s, %s, %s, %s, TRUE)",
+            "INSERT INTO attendance_sessions (class_id, controller_id, session_token, start_time, end_time, is_active) VALUES (%s, %s, %s, %s, %s, TRUE) RETURNING id",
             (ba_anthropology_class_id, controller_id, session_token, start_time, end_time)
         )
+        new_session_id = cur.fetchone()[0] # Retrieve the returned ID
         conn.commit()
         flash(f"Attendance session for {class_name} started successfully! Session ID: {new_session_id}", "success")
-        print(f"DEBUG: New session for '{class_name}' started successfully.")
+        print(f"DEBUG: New session for '{class_name}' started successfully. ID: {new_session_id}")
     except Exception as e:
         print(f"ERROR: start_session: Exception starting attendance session: {e}")
         flash("An error occurred while starting the attendance session.", "danger")
