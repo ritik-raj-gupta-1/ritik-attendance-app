@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mark Attendance</title>
+    <title>Mark BA Attendance (by Ritik)</title> {# Updated title #}
+    <!-- Tailwind CSS CDN for utility classes -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Link to your custom stylesheet for additional styling -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         /* Specific styles for student attendance page */
@@ -39,43 +42,97 @@
         .student-name-display {
             margin-top: 10px;
             font-weight: bold;
-            color: #0056b3; /* Default color */
+            color: #007bff;
         }
         .button:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
+        }
+        /* Status Message Styles (common to all pages with status-message div) */
+        .status-message {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-align: center;
+            display: none; /* Hidden by default, shown by JS */
+        }
+        .status-message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status-message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status-message.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .status-message.warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+
+        /* Responsive adjustments for smaller screens */
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                padding: 15px;
+            }
+            .header h2 {
+                font-size: 1.5em;
+            }
+            .button {
+                width: 100%;
+                box-sizing: border-box; /* Include padding and border in the element's total width */
+            }
+            .form-group input[type="text"] {
+                width: 100%; /* Make input full width on small screens */
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>Mark Attendance (by Ritik)</h2>
+            <h2>Mark BA Attendance (by Ritik)</h2> {# Updated heading #}
+            <p>Enter your enrollment number to mark attendance for the active BA - Anthropology session.</p>
         </div>
-        
+
         {# Global status message div for JavaScript #}
         <div id="status-message" class="status-message"></div>
 
-        {% if active_session %}
+        <div class="dashboard-content">
+            {% if active_session %}
             <div class="session-info">
                 <p>Active Session for: <strong>{{ active_session.class_name }}</strong></p>
                 <p>Time Remaining: <span id="timer-student" style="font-weight: bold;">{{ active_session.remaining_time }}s</span></p>
                 <p>Session ID: <strong>{{ active_session.id }}</strong></p>
             </div>
-        {% else %}
+            <form id="attendance-form" class="attendance-form">
+                <div class="form-group">
+                    <label for="enrollment_no">Enrollment Number:</label>
+                    <input type="text" id="enrollment_no" name="enrollment_no" required placeholder="e.g., Y24120123">
+                    <div id="student-name-display" class="student-name-display"></div>
+                </div>
+                <button type="submit" id="mark-btn" class="button" {% if not active_session %}disabled{% endif %}>Mark Attendance</button>
+            </form>
+            {% else %}
             <div class="info-message">
                 No active attendance session for BA - Anthropology. Please check back later.
             </div>
-        {% endif %}
-
-        <form id="attendance-form" class="attendance-form">
-            <div class="form-group">
-                <label for="enrollment_no">Enrollment Number:</label>
-                <input type="text" id="enrollment_no" name="enrollment_no" required placeholder="e.g., Y24120123">
-                <div id="student-name-display" class="student-name-display"></div>
+            {% endif %}
+            
+            {# UTD Games Button #}
+            <div class="mt-8 text-center">
+                <a href="https://utdgames.carrd.co" target="_blank" class="button button-primary">UTD Games</a>
             </div>
-            <button type="submit" id="mark-btn" class="button" {% if not active_session %}disabled{% endif %}>Mark Attendance</button>
-        </form>
+        </div>
     </div>
     <script>
         // Pass active_session data for student page timer and session ID
