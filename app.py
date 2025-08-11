@@ -7,6 +7,7 @@ from functools import wraps
 import secrets
 import math
 import io
+import hashlib # NEW: Import the hashing library
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -295,9 +296,13 @@ def mark_attendance():
             if distance > radius:
                 return jsonify({"success": False, "message": f"You are {distance:.0f}m away and outside the allowed radius.", "category": "danger"}), 403
 
+            # FINAL FIX: Hash the long fingerprint to a short, fixed-length string
+            long_fingerprint = data['device_fingerprint']
+            hashed_fingerprint = hashlib.sha256(long_fingerprint.encode('utf-8')).hexdigest()
+
             cur.execute(
                 "SELECT student_id FROM session_device_fingerprints WHERE session_id = %s AND fingerprint = %s",
-                (data['session_id'], data['device_fingerprint'])
+                (data['session_id'], hashed_fingerprint)
             )
             fingerprint_record = cur.fetchone()
             if fingerprint_record and fingerprint_record[0] != student_id:
@@ -306,7 +311,7 @@ def mark_attendance():
             timestamp = datetime.now(timezone.utc)
             cur.execute(
                 "INSERT INTO session_device_fingerprints (session_id, student_id, fingerprint) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
-                (data['session_id'], student_id, data['device_fingerprint'])
+                (data['session_id'], student_id, hashed_fingerprint)
             )
             cur.execute(
                 "INSERT INTO attendance_records (session_id, student_id, timestamp, latitude, longitude, ip_address) VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (session_id, student_id) DO NOTHING",
@@ -418,7 +423,7 @@ def attendance_report():
 
 @app.route('/delete_daily_attendance', methods=['POST'])
 @controller_required
-def delete_daily_attendance(date):
+def delete_daily_attendance():
     date_str = request.get_json().get('date')
     if not date_str:
         return jsonify({"success": False, "message": "No date provided."}), 400
@@ -437,9 +442,9 @@ def delete_daily_attendance(date):
         if session_ids_to_delete:
             cur.execute("DELETE FROM attendance_sessions WHERE id = ANY(%s)", (session_ids_to_delete,))
             conn.commit()
-            return jsonify({"success": True, "message": f"All records for {date_str} deleted."})
+            return jsonify({"success": True, "message": f"All records for {date_str} deleted.", "category": "success"})
         else:
-            return jsonify({"success": True, "message": f"No records found for {date_str}."})
+            return jsonify({"success": True, "message": f"No records found for {date_str}.", "category": "info"})
     except Exception as e:
         conn.rollback()
         print(f"ERROR: delete_daily_attendance: {e}")
