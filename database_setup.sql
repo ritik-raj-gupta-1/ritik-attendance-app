@@ -88,9 +88,9 @@ INSERT INTO users (username, role) VALUES
 
 -- Insert the single class data for BA - Anthropology
 -- Location: 23°49'44"N 78°46'30"E -> Decimal: 23.828889, 78.775000
--- Radius: 80 meters (MATCHES frontend main.js)
+-- Radius: 1800 meters (MATCHES frontend main.js)
 INSERT INTO classes (class_name, controller_id, geofence_lat, geofence_lon, geofence_radius) VALUES
-('BA - Anthropology', (SELECT id FROM users WHERE username = 'controller'), 23.828889, 78.775000, 80)
+('BA - Anthropology', (SELECT id FROM users WHERE username = 'controller'), 23.828889, 78.775000, 1800)
 ON CONFLICT (class_name) DO NOTHING; -- Use ON CONFLICT to make it idempotent
 
 
