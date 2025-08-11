@@ -165,4 +165,4 @@ INSERT INTO students (enrollment_no, name, batch) VALUES
 ('Y24130025', 'RAKSHA SINGH', 'BA'),
 ('Y24130066', 'AASHIYA RANGREJ', 'BA'),
 ('Y24130071', 'AMAN GHARU', 'BA')
-ON CONFLICT (enrollment_no) DO NOTHING; -- Use ON CONFLICT to make it idempotent
+ON CONFLICT (enrollment_no) DO NOTHING;
