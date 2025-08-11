@@ -9,7 +9,21 @@
     
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     
-    <script src="https://fpcdn.io/v3/7P3g5sW2p2I4D1s9sYy4"></script>
+    <script
+        src="https://fpjscdn.net/v3/7P3g5sW2p2I4D1s9sYy4"
+        onload="initFingerprintJS()">
+    </script>
+    <script>
+        // Initialize FingerprintJS once the script is loaded
+        function initFingerprintJS() {
+            FingerprintJS.load()
+                .then(fp => fp.get())
+                .then(result => {
+                    // This makes the visitorId available globally, for example
+                    window.deviceFingerprint = result.visitorId;
+                });
+        }
+    </script>
 
     <style>
         /* Your original CSS styles remain here */
