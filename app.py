@@ -46,51 +46,86 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 
 def get_class_id_by_name(class_name):
     conn = get_db_connection()
-    if conn is None: return None
+    if conn is None:
+        print(f"DEBUG: get_class_id_by_name: Could not connect to database for class '{class_name}'.")
+        return None
     try:
         cur = conn.cursor()
         cur.execute("SELECT id FROM classes WHERE class_name = %s", (class_name,))
         result = cur.fetchone()
-        return result[0] if result else None
+        if result:
+            print(f"DEBUG: get_class_id_by_name: Found class '{class_name}' with ID: {result[0]}.")
+            return result[0]
+        else:
+            print(f"DEBUG: get_class_id_by_name: Class '{class_name}' not found in DB.")
+            return None
+    except Exception as e:
+        print(f"ERROR: get_class_id_by_name: Exception fetching class ID for '{class_name}': {e}")
+        return None
     finally:
-        if conn: conn.close()
+        if conn:
+            conn.close()
 
 def get_controller_id_by_username(username):
     conn = get_db_connection()
-    if conn is None: return None
+    if conn is None:
+        print(f"DEBUG: get_controller_id_by_username: Could not connect to database for user '{username}'.")
+        return None
     try:
         cur = conn.cursor()
         cur.execute("SELECT id FROM users WHERE username = %s AND role = 'controller'", (username,))
         result = cur.fetchone()
-        return result[0] if result else None
+        if result:
+            print(f"DEBUG: get_controller_id_by_username: Found controller '{username}' with ID: {result[0]}.")
+            return result[0]
+        else:
+            print(f"DEBUG: get_controller_id_by_username: Controller '{username}' not found in DB or not a controller role.")
+            return None
+    except Exception as e:
+        print(f"ERROR: get_controller_id_by_username: Exception fetching controller ID for '{username}': {e}")
+        return None
     finally:
-        if conn: conn.close()
+        if conn:
+            conn.close()
 
 def get_active_ba_anthropology_session():
-    class_id = get_class_id_by_name('BA - Anthropology')
-    if not class_id: return None
+    class_name = 'BA - Anthropology'
+    class_id = get_class_id_by_name(class_name)
+    if class_id is None:
+        print(f"DEBUG: get_active_ba_anthropology_session: Class ID for '{class_name}' not found. Cannot fetch active session.")
+        return None
     conn = get_db_connection()
-    if not conn: return None
+    if conn is None:
+        print("DEBUG: get_active_ba_anthropology_session: Could not connect to database.")
+        return None
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute(
-            "SELECT * FROM attendance_sessions WHERE class_id = %s AND is_active = TRUE AND end_time > %s ORDER BY start_time DESC LIMIT 1",
+            "SELECT id, session_token, start_time, end_time FROM attendance_sessions WHERE class_id = %s AND is_active = TRUE AND end_time > %s ORDER BY start_time DESC LIMIT 1",
             (class_id, datetime.now(timezone.utc))
         )
         session_data = cur.fetchone()
-        if not session_data: return None
-        end_time_utc = session_data['end_time'].astimezone(timezone.utc)
-        time_remaining = (end_time_utc - datetime.now(timezone.utc)).total_seconds()
-        if time_remaining <= 0:
-            cur.execute("UPDATE attendance_sessions SET is_active = FALSE WHERE id = %s", (session_data['id'],))
-            conn.commit()
+        if session_data:
+            session_dict = dict(session_data)
+            end_time_utc = session_dict['end_time'].astimezone(timezone.utc)
+            time_remaining = (end_time_utc - datetime.now(timezone.utc)).total_seconds()
+            if time_remaining <= 0:
+                cur.execute("UPDATE attendance_sessions SET is_active = FALSE WHERE id = %s", (session_dict['id'],))
+                conn.commit()
+                print(f"DEBUG: Session {session_dict['id']} for '{class_name}' expired and marked inactive.")
+                return None
+            session_dict['class_name'] = class_name
+            session_dict['remaining_time'] = math.ceil(time_remaining)
+            return session_dict
+        else:
+            print(f"DEBUG: No active session found for class '{class_name}' (Class ID: {class_id}).")
             return None
-        session_dict = dict(session_data)
-        session_dict['class_name'] = 'BA - Anthropology'
-        session_dict['remaining_time'] = math.ceil(time_remaining)
-        return session_dict
+    except Exception as e:
+        print(f"ERROR: get_active_ba_anthropology_session: Exception fetching active session for {class_name}: {e}")
+        return None
     finally:
-        if conn: conn.close()
+        if conn:
+            conn.close()
 
 @app.route('/')
 def home():
@@ -142,7 +177,15 @@ def controller_dashboard():
                 "SELECT id, start_time, end_time, is_active FROM attendance_sessions WHERE class_id = %s AND is_active = FALSE ORDER BY start_time DESC",
                 (ba_anthropology_class_id,)
             )
-            past_sessions = [dict(s) for s in cur.fetchall()]
+            past_sessions_raw = cur.fetchall()
+            past_sessions = [
+                {
+                    'id': s['id'],
+                    'start_time': s['start_time'].astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z'),
+                    'end_time': s['end_time'].astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z'),
+                    'is_active': s['is_active']
+                } for s in past_sessions_raw
+            ]
         except Exception as e:
             print(f"ERROR: controller_dashboard: {e}")
             flash("An error occurred while fetching past sessions.", "danger")
@@ -179,11 +222,12 @@ def start_session():
         session_token = secrets.token_hex(16)
         
         cur.execute(
-            "INSERT INTO attendance_sessions (class_id, controller_id, session_token, start_time, end_time, is_active) VALUES (%s, %s, %s, %s, %s, TRUE)",
+            "INSERT INTO attendance_sessions (class_id, controller_id, session_token, start_time, end_time, is_active) VALUES (%s, %s, %s, %s, %s, TRUE) RETURNING id",
             (class_id, session['user_id'], session_token, start_time, end_time)
         )
+        new_session_id = cur.fetchone()[0]
         conn.commit()
-        flash("New attendance session started successfully!", "success")
+        flash(f"New attendance session (ID: {new_session_id}) started successfully!", "success")
     except Exception as e:
         conn.rollback()
         print(f"ERROR: start_session: {e}")
@@ -206,7 +250,10 @@ def end_session(session_id):
             (datetime.now(timezone.utc), session_id, session['user_id'])
         )
         conn.commit()
-        return jsonify({"success": True, "message": "Session ended successfully."})
+        if cur.rowcount > 0:
+            return jsonify({"success": True, "message": "Session ended successfully.", "category": "info"})
+        else:
+            return jsonify({"success": False, "message": "Session not found or already ended.", "category": "warning"})
     except Exception as e:
         conn.rollback()
         return jsonify({"success": False, "message": "An error occurred."})
@@ -214,10 +261,6 @@ def end_session(session_id):
         cur.close()
         conn.close()
 
-
-# ==============================================================================
-# === THIS IS THE PRIMARY MODIFIED FUNCTION ===
-# ==============================================================================
 @app.route('/mark_attendance', methods=['GET', 'POST'])
 def mark_attendance():
     if request.method == 'POST':
@@ -236,7 +279,7 @@ def mark_attendance():
             cur.execute("SELECT id FROM students WHERE enrollment_no = %s AND batch = 'BA'", (data['enrollment_no'],))
             student_result = cur.fetchone()
             if not student_result:
-                return jsonify({"success": False, "message": "Enrollment number not found."}), 404
+                return jsonify({"success": False, "message": "Enrollment number not found.", "category": "danger"}), 404
             student_id = student_result[0]
 
             cur.execute(
@@ -245,12 +288,12 @@ def mark_attendance():
             )
             session_info = cur.fetchone()
             if not session_info:
-                return jsonify({"success": False, "message": "Invalid or expired session."}), 400
+                return jsonify({"success": False, "message": "Invalid or expired session.", "category": "danger"}), 400
 
             lat, lon, radius = session_info
             distance = haversine_distance(float(data['latitude']), float(data['longitude']), lat, lon)
             if distance > radius:
-                return jsonify({"success": False, "message": f"You are {distance:.0f}m away and outside the allowed radius."}), 403
+                return jsonify({"success": False, "message": f"You are {distance:.0f}m away and outside the allowed radius.", "category": "danger"}), 403
 
             cur.execute(
                 "SELECT student_id FROM session_device_fingerprints WHERE session_id = %s AND fingerprint = %s",
@@ -258,7 +301,7 @@ def mark_attendance():
             )
             fingerprint_record = cur.fetchone()
             if fingerprint_record and fingerprint_record[0] != student_id:
-                return jsonify({"success": False, "message": "This device has already marked attendance for another student."}), 403
+                return jsonify({"success": False, "message": "This device has already marked attendance for another student.", "category": "danger"}), 403
 
             timestamp = datetime.now(timezone.utc)
             cur.execute(
@@ -271,15 +314,15 @@ def mark_attendance():
             )
             if cur.rowcount == 0:
                 conn.commit()
-                return jsonify({"success": False, "message": "Attendance already marked for this session."}), 409
+                return jsonify({"success": False, "message": "Attendance already marked for this session.", "category": "warning"}), 409
 
             conn.commit()
-            return jsonify({"success": True, "message": "Attendance marked successfully!"})
+            return jsonify({"success": True, "message": "Attendance marked successfully!", "category": "success"})
 
         except Exception as e:
             conn.rollback()
             print(f"ERROR: {e}")
-            return jsonify({"success": False, "message": "A server error occurred."}), 500
+            return jsonify({"success": False, "message": "A server error occurred.", "category": "error"}), 500
         finally:
             if conn: conn.close()
 
@@ -302,5 +345,4 @@ def mark_attendance():
 
     return render_template('student_attendance.html', active_session=active_session, geofence_data=geofence_data)
 
-# (All other routes like /api/get_student_name, /attendance_report, /edit_attendance etc. remain the same)
-# ... Your original code for those routes is correct ...
+# ... (All other original routes like /api/get_student_name, etc. follow)
