@@ -69,8 +69,8 @@
         </div>
     </div>
     <script>
-        window.activeSessionDataStudent = {{ active_session | tojson | default('{}', true) }};
-        window.geofenceData = {{ geofence_data | tojson | default('{}', true) }};
+        window.activeSessionDataStudent = {{ active_session | tojson | safe }};
+        window.geofenceData = {{ geofence_data | tojson | safe }};
     </script>
     <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
