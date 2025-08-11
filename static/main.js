@@ -68,8 +68,7 @@ function initStudentPage() {
         markAttendanceButton.textContent = "Processing...";
         showStatusMessage('Verifying device and location...', 'info');
 
-        // FINAL FIX: Check if the fingerprint function is available on the window
-        if (typeof window.getFingerprint !== 'function') {
+        if (typeof FingerprintJS === 'undefined') {
             showStatusMessage('Error: Fingerprint library did not load. Please disable ad-blockers and refresh.', 'error');
             markAttendanceButton.disabled = false;
             markAttendanceButton.textContent = "Mark Attendance";
@@ -77,7 +76,8 @@ function initStudentPage() {
         }
 
         try {
-            const fp = await window.getFingerprint();
+            // FINAL FIX: This is the simplest and most reliable way to get the fingerprint
+            const fp = await FingerprintJS.load();
             const result = await fp.get();
             const visitorId = result.visitorId;
 
@@ -157,7 +157,6 @@ function initStudentPage() {
 // === CONTROLLER & REPORT PAGE LOGIC (UNCHANGED) ===
 // ==============================================================================
 function initControllerAndReportPage() {
-    // ... This entire section is unchanged
     const confirmationModal = document.getElementById('confirmation-modal');
     const confirmMessage = document.getElementById('confirm-message');
     const confirmYesBtn = document.getElementById('confirm-yes');
@@ -180,7 +179,6 @@ function initControllerAndReportPage() {
 // === EDIT ATTENDANCE PAGE LOGIC (UNCHANGED) ===
 // ==============================================================================
 function initEditAttendancePage() {
-    // ... This entire section is unchanged
     const editAttendanceTable = document.getElementById('attendance-table');
     const sessionId = editAttendanceTable.dataset.sessionId;
     async function fetchStudentsForEdit(sessionId) { const tbody = editAttendanceTable.querySelector('tbody'); tbody.innerHTML = '<tr><td colspan="3">Loading students...</td></tr>'; try { const response = await fetch(`/api/get_session_students_for_edit/${sessionId}`); const data = await response.json(); if (!data.success || !data.students) { tbody.innerHTML = `<tr><td colspan="3">${data.message || 'Failed to load students.'}</td></tr>`; return; } tbody.innerHTML = ''; data.students.forEach(student => { const row = tbody.insertRow(); row.innerHTML = `<td>${student.enrollment_no}</td><td>${student.name}</td><td><input type="checkbox" data-student-id="${student.id}" class="attendance-checkbox" ${student.is_present ? 'checked' : ''}></td>`; }); tbody.querySelectorAll('.attendance-checkbox').forEach(checkbox => { checkbox.addEventListener('change', function() { const studentId = this.dataset.studentId; const isPresent = this.checked; updateAttendanceRecord(sessionId, studentId, isPresent, this); }); }); } catch (error) { tbody.innerHTML = '<tr><td colspan="3">An unexpected error occurred.</td></tr>'; } }
