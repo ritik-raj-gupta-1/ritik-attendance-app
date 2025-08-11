@@ -7,7 +7,7 @@ from functools import wraps
 import secrets
 import math
 import io
-import hashlib # NEW: Import the hashing library
+import hashlib
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -47,58 +47,31 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 
 def get_class_id_by_name(class_name):
     conn = get_db_connection()
-    if conn is None:
-        print(f"DEBUG: get_class_id_by_name: Could not connect to database for class '{class_name}'.")
-        return None
+    if conn is None: return None
     try:
         cur = conn.cursor()
         cur.execute("SELECT id FROM classes WHERE class_name = %s", (class_name,))
         result = cur.fetchone()
-        if result:
-            print(f"DEBUG: get_class_id_by_name: Found class '{class_name}' with ID: {result[0]}.")
-            return result[0]
-        else:
-            print(f"DEBUG: get_class_id_by_name: Class '{class_name}' not found in DB.")
-            return None
-    except Exception as e:
-        print(f"ERROR: get_class_id_by_name: Exception fetching class ID for '{class_name}': {e}")
-        return None
+        return result[0] if result else None
     finally:
-        if conn:
-            conn.close()
+        if conn: conn.close()
 
 def get_controller_id_by_username(username):
     conn = get_db_connection()
-    if conn is None:
-        print(f"DEBUG: get_controller_id_by_username: Could not connect to database for user '{username}'.")
-        return None
+    if conn is None: return None
     try:
         cur = conn.cursor()
         cur.execute("SELECT id FROM users WHERE username = %s AND role = 'controller'", (username,))
         result = cur.fetchone()
-        if result:
-            print(f"DEBUG: get_controller_id_by_username: Found controller '{username}' with ID: {result[0]}.")
-            return result[0]
-        else:
-            print(f"DEBUG: get_controller_id_by_username: Controller '{username}' not found in DB or not a controller role.")
-            return None
-    except Exception as e:
-        print(f"ERROR: get_controller_id_by_username: Exception fetching controller ID for '{username}': {e}")
-        return None
+        return result[0] if result else None
     finally:
-        if conn:
-            conn.close()
+        if conn: conn.close()
 
 def get_active_ba_anthropology_session():
-    class_name = 'BA - Anthropology'
-    class_id = get_class_id_by_name(class_name)
-    if class_id is None:
-        print(f"DEBUG: get_active_ba_anthropology_session: Class ID for '{class_name}' not found. Cannot fetch active session.")
-        return None
+    class_id = get_class_id_by_name('BA - Anthropology')
+    if not class_id: return None
     conn = get_db_connection()
-    if conn is None:
-        print("DEBUG: get_active_ba_anthropology_session: Could not connect to database.")
-        return None
+    if not conn: return None
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute(
@@ -106,27 +79,19 @@ def get_active_ba_anthropology_session():
             (class_id, datetime.now(timezone.utc))
         )
         session_data = cur.fetchone()
-        if session_data:
-            session_dict = dict(session_data)
-            end_time_utc = session_dict['end_time'].astimezone(timezone.utc)
-            time_remaining = (end_time_utc - datetime.now(timezone.utc)).total_seconds()
-            if time_remaining <= 0:
-                cur.execute("UPDATE attendance_sessions SET is_active = FALSE WHERE id = %s", (session_dict['id'],))
-                conn.commit()
-                print(f"DEBUG: Session {session_dict['id']} for '{class_name}' expired and marked inactive.")
-                return None
-            session_dict['class_name'] = class_name
-            session_dict['remaining_time'] = math.ceil(time_remaining)
-            return session_dict
-        else:
-            print(f"DEBUG: No active session found for class '{class_name}' (Class ID: {class_id}).")
+        if not session_data: return None
+        end_time_utc = session_data['end_time'].astimezone(timezone.utc)
+        time_remaining = (end_time_utc - datetime.now(timezone.utc)).total_seconds()
+        if time_remaining <= 0:
+            cur.execute("UPDATE attendance_sessions SET is_active = FALSE WHERE id = %s", (session_data['id'],))
+            conn.commit()
             return None
-    except Exception as e:
-        print(f"ERROR: get_active_ba_anthropology_session: Exception fetching active session for {class_name}: {e}")
-        return None
+        session_dict = dict(session_data)
+        session_dict['class_name'] = 'BA - Anthropology'
+        session_dict['remaining_time'] = math.ceil(time_remaining)
+        return session_dict
     finally:
-        if conn:
-            conn.close()
+        if conn: conn.close()
 
 @app.route('/')
 def home():
@@ -296,7 +261,6 @@ def mark_attendance():
             if distance > radius:
                 return jsonify({"success": False, "message": f"You are {distance:.0f}m away and outside the allowed radius.", "category": "danger"}), 403
 
-            # FINAL FIX: Hash the long fingerprint to a short, fixed-length string
             long_fingerprint = data['device_fingerprint']
             hashed_fingerprint = hashlib.sha256(long_fingerprint.encode('utf-8')).hexdigest()
 
@@ -452,6 +416,9 @@ def delete_daily_attendance():
     finally:
         if conn: conn.close()
 
+# ==============================================================================
+# === THIS IS THE COMPLETELY REWRITTEN CSV EXPORT FUNCTION ===
+# ==============================================================================
 @app.route('/export_attendance_csv')
 @controller_required
 def export_attendance_csv():
@@ -459,43 +426,90 @@ def export_attendance_csv():
     if not conn:
         flash("Database connection failed for export.", "danger")
         return redirect(url_for('attendance_report'))
+    
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     class_id = get_class_id_by_name('BA - Anthropology')
     if not class_id:
         flash("Error: Class 'BA - Anthropology' not found.", "danger")
         return redirect(url_for('attendance_report'))
+
     try:
+        # 1. Get all students, sorted by enrollment number
+        cur.execute("SELECT id, enrollment_no, name FROM students WHERE batch = 'BA' ORDER BY enrollment_no ASC")
+        all_students = cur.fetchall()
+
+        # 2. Get all unique dates where sessions were held, sorted chronologically
         cur.execute("""
-            SELECT s.enrollment_no, s.name, s.batch, c.class_name, asess.start_time, ar.timestamp, ar.latitude, ar.longitude, ar.ip_address
-            FROM attendance_records ar
-            JOIN students s ON ar.student_id = s.id
-            JOIN attendance_sessions asess ON ar.session_id = asess.id
-            JOIN classes c ON asess.class_id = c.id
-            WHERE s.batch = 'BA' AND c.id = %s
-            ORDER BY ar.timestamp DESC
+            SELECT DISTINCT DATE(start_time AT TIME ZONE 'UTC') AS session_date
+            FROM attendance_sessions
+            WHERE class_id = %s
+            ORDER BY session_date ASC
         """, (class_id,))
-        rows = cur.fetchall()
+        session_dates = [row['session_date'] for row in cur.fetchall()]
+        
+        if not session_dates:
+            flash("No attendance sessions found to generate a report.", "info")
+            return redirect(url_for('attendance_report'))
+
+        # 3. Create a master dictionary of attendance: {(student_id, date): 'Present'}
+        attendance_map = {}
+        cur.execute("""
+            SELECT
+                ar.student_id,
+                DATE(s.start_time AT TIME ZONE 'UTC') AS session_date
+            FROM attendance_records ar
+            JOIN attendance_sessions s ON ar.session_id = s.id
+            WHERE s.class_id = %s
+        """, (class_id,))
+        for record in cur.fetchall():
+            attendance_map[(record['student_id'], record['session_date'])] = 'Present'
+
+        # 4. Build the CSV in memory
         output = io.StringIO()
-        output.write("Enrollment No,Student Name,Batch,Class Name,Session Start Time,Attendance Marked Time,Latitude,Longitude,IP Address\n")
-        for row in rows:
-            formatted_row = [
-                str(row['enrollment_no']), str(row['name']), str(row['batch']), str(row['class_name']),
-                row['start_time'].astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z'),
-                row['timestamp'].astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z'),
-                str(row['latitude'] or ''), str(row['longitude'] or ''), str(row['ip_address'] or '')
-            ]
-            output.write(",".join(f'"{item}"' for item in formatted_row) + "\n")
+        
+        # Create header row
+        header = ['Enrollment No', 'Student Name'] + [d.strftime('%Y-%m-%d') for d in session_dates] + ['Total Present', 'Total Classes', 'Percentage']
+        output.write(",".join(header) + "\n")
+
+        total_class_days = len(session_dates)
+
+        # Create a row for each student
+        for student in all_students:
+            present_count = 0
+            row_data = [student['enrollment_no'], student['name']]
+            
+            for session_date in session_dates:
+                status = attendance_map.get((student['id'], session_date), 'Absent')
+                row_data.append(status)
+                if status == 'Present':
+                    present_count += 1
+            
+            # Calculate percentage
+            percentage = (present_count / total_class_days * 100) if total_class_days > 0 else 0
+            
+            row_data.append(str(present_count))
+            row_data.append(str(total_class_days))
+            row_data.append(f"{percentage:.2f}%")
+            
+            output.write(",".join(f'"{item}"' for item in row_data) + "\n")
+            
         output.seek(0)
         return send_file(
             io.BytesIO(output.getvalue().encode('utf-8')),
-            mimetype='text/csv', as_attachment=True, download_name='BA_Anthropology_Attendance_Report.csv'
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f'BA_Anthropology_Semester_Report.csv'
         )
+
     except Exception as e:
         print(f"ERROR: export_attendance_csv: {e}")
         flash("An error occurred during CSV export.", "danger")
         return redirect(url_for('attendance_report'))
     finally:
-        if conn: cur.close(); conn.close()
+        if conn:
+            cur.close()
+            conn.close()
+
 
 @app.route('/edit_attendance/<int:session_id>')
 @controller_required
