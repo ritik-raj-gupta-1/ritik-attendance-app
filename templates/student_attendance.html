@@ -3,13 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mark BA Attendance (by Ritik)</title> {# Updated title #}
-    <!-- Tailwind CSS CDN for utility classes -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Link to your custom stylesheet for additional styling -->
+    <title>Mark BA Attendance (by Ritik)</title>
+    <script src="https://cdn/tailwindcss.com"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <script
+      src="https://fpcdn.io/v3/7P3g5sW2p2I4D1s9sYy4"
+      integrity="sha384-VTsk9n1X9Y2M3xSC9y2pS5OunlJw2/M/3G2pB9z4X3u+eFBd9S1K00vjK/2sWRIr"
+      crossorigin="anonymous"
+    ></script>
+
     <style>
-        /* Specific styles for student attendance page */
+        /* Specific styles for student attendance page from your original file */
         .session-info {
             background-color: #e9ecef;
             padding: 15px;
@@ -100,43 +105,47 @@
 <body>
     <div class="container">
         <div class="header">
-            <h2>Mark BA Attendance (by Ritik)</h2> {# Updated heading #}
+            <h2>Mark BA Attendance (by Ritik)</h2>
             <p>Enter your enrollment number to mark attendance for the active BA - Anthropology session.</p>
         </div>
 
-        {# Global status message div for JavaScript #}
         <div id="status-message" class="status-message"></div>
 
         <div class="dashboard-content">
             {% if active_session %}
-            <div class="session-info">
-                <p>Active Session for: <strong>{{ active_session.class_name }}</strong></p>
-                <p>Time Remaining: <span id="timer-student" style="font-weight: bold;">{{ active_session.remaining_time }}s</span></p>
-                <p>Session ID: <strong>{{ active_session.id }}</strong></p>
-            </div>
-            <form id="attendance-form" class="attendance-form">
-                <div class="form-group">
-                    <label for="enrollment_no">Enrollment Number:</label>
-                    <input type="text" id="enrollment_no" name="enrollment_no" required placeholder="e.g., Y24120123">
-                    <div id="student-name-display" class="student-name-display"></div>
+                <div class="session-info">
+                    <p>Active Session for: <strong>{{ active_session.class_name }}</strong></p>
+                    <p>Time Remaining: <span id="timer-student" style="font-weight: bold;">{{ active_session.remaining_time }}s</span></p>
                 </div>
-                <button type="submit" id="mark-btn" class="button" {% if not active_session %}disabled{% endif %}>Mark Attendance</button>
-            </form>
+
+                <div id="location-status" class="status-message info" style="display: block;">
+                    Checking your location... Please grant permission.
+                </div>
+
+                <form id="attendance-form" class="attendance-form" style="display: none;">
+                    <div class="form-group">
+                        <label for="enrollment_no">Enrollment Number:</label>
+                        <input type="text" id="enrollment_no" name="enrollment_no" required placeholder="e.g., Y24120123">
+                        <div id="student-name-display" class="student-name-display"></div>
+                    </div>
+                    <button type="submit" id="mark-btn" class="button">Mark Attendance</button>
+                </form>
+
             {% else %}
-            <div class="info-message">
-                No active attendance session for BA - Anthropology. Please check back later.
-            </div>
+                <div class="info-message">
+                    No active attendance session for BA - Anthropology. Please check back later.
+                </div>
             {% endif %}
             
-            {# UTD Games Button #}
             <div class="mt-8 text-center">
                 <a href="https://utdgames.carrd.co" target="_blank" class="button button-primary">UTD Games</a>
             </div>
         </div>
     </div>
     <script>
-        // Pass active_session data for student page timer and session ID
+        // Pass session and geofence data to JavaScript
         window.activeSessionDataStudent = {{ active_session | tojson | default('{}', true) }};
+        window.geofenceData = {{ geofence_data | tojson | default('{}', true) }};
     </script>
     <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>

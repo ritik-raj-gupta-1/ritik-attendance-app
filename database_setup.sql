@@ -10,6 +10,7 @@ DROP TABLE IF EXISTS classes CASCADE;
 DROP TABLE IF EXISTS students CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS daily_attendance_ips CASCADE;
+DROP TABLE IF EXISTS session_device_fingerprints CASCADE; -- Drop the new table if it exists
 
 -- Table for the single controller user (no password column here as it's hardcoded in app.py)
 CREATE TABLE users (
@@ -52,8 +53,8 @@ CREATE TABLE attendance_sessions (
 -- Table to store attendance records
 CREATE TABLE attendance_records (
     id SERIAL PRIMARY KEY,
-    session_id INT REFERENCES attendance_sessions(id), -- Foreign key linking to attendance_sessions
-    student_id INT REFERENCES students(id),           -- Foreign key linking to students
+    session_id INT REFERENCES attendance_sessions(id) ON DELETE CASCADE, -- Cascade deletes
+    student_id INT REFERENCES students(id),
     timestamp TIMESTAMPTZ NOT NULL,
     latitude REAL,
     longitude REAL,
@@ -61,13 +62,25 @@ CREATE TABLE attendance_records (
     UNIQUE (session_id, student_id) -- CRITICAL: Ensures unique attendance per student per session
 );
 
--- Table to track IP addresses for a given day (for attendance security - one submission per IP per day)
+-- This table is no longer used but is kept here for reference if you need to drop it.
 CREATE TABLE daily_attendance_ips (
     id SERIAL PRIMARY KEY,
     ip_address TEXT NOT NULL,
     date DATE NOT NULL,
     UNIQUE (ip_address, date)
 );
+
+-- NEW TABLE for Device Fingerprinting
+-- Table to link a device fingerprint to a student for a specific session
+CREATE TABLE session_device_fingerprints (
+    id SERIAL PRIMARY KEY,
+    session_id INT REFERENCES attendance_sessions(id) ON DELETE CASCADE,
+    student_id INT REFERENCES students(id) ON DELETE CASCADE,
+    fingerprint TEXT NOT NULL,
+    UNIQUE (session_id, student_id), -- A student can only have one fingerprint per session
+    UNIQUE (session_id, fingerprint) -- A fingerprint can only be used once per session
+);
+
 
 -- Insert the single controller user (no password needed here anymore)
 INSERT INTO users (username, role) VALUES
