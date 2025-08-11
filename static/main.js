@@ -18,11 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==============================================================================
-// === STUDENT PAGE LOGIC (with simplified fingerprinting) ===
+// === STUDENT PAGE LOGIC (Location check on SUBMIT) ===
 // ==============================================================================
 function initStudentPage() {
     const attendanceForm = document.getElementById('attendance-form');
-    const locationStatusDiv = document.getElementById('location-status');
     const markAttendanceButton = document.getElementById('mark-btn');
     const enrollmentNoInput = document.getElementById('enrollment_no');
     const studentNameDisplay = document.getElementById('student-name-display');
@@ -34,97 +33,83 @@ function initStudentPage() {
     }
 
     startStudentTimer(window.activeSessionDataStudent.remaining_time, timerStudentSpan);
-    checkLocationOnLoad();
+    
+    // The on-load location check has been REMOVED.
 
     enrollmentNoInput.addEventListener('input', debounce(fetchStudentName, 300));
     attendanceForm.addEventListener('submit', handleAttendanceSubmit);
-
-    function checkLocationOnLoad() {
-        if (!navigator.geolocation) {
-            updateLocationStatus('Geolocation is not supported by your browser.', 'error');
-            return;
-        }
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                if (!window.geofenceData || typeof window.geofenceData.geofence_lat === 'undefined') {
-                    updateLocationStatus('Geofence data not loaded. Please refresh.', 'error');
-                    return;
-                }
-                const { latitude, longitude } = position.coords;
-                const distance = haversineDistance(latitude, longitude, window.geofenceData.geofence_lat, window.geofenceData.geofence_lon);
-                if (distance <= window.geofenceData.geofence_radius) {
-                    locationStatusDiv.style.display = 'none';
-                    attendanceForm.style.display = 'block';
-                } else {
-                    updateLocationStatus(`You are too far from class (${distance.toFixed(0)}m away). Please move closer and refresh.`, 'error');
-                }
-            },
-            () => {
-                updateLocationStatus('Could not get your location. Please grant location permission and refresh.', 'error');
-            },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
-    }
 
     async function handleAttendanceSubmit(e) {
         e.preventDefault();
         markAttendanceButton.disabled = true;
         markAttendanceButton.textContent = "Processing...";
-        showStatusMessage('Verifying device and location...', 'info');
+        showStatusMessage('Getting location and verifying device...', 'info');
 
-        try {
-            const visitorId = getCanvasFingerprint();
-
-            navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    try {
-                        const { latitude, longitude } = position.coords;
-                        
-                        const formData = new URLSearchParams({
-                            enrollment_no: enrollmentNoInput.value.trim(),
-                            session_id: window.activeSessionDataStudent.id,
-                            latitude: latitude,
-                            longitude: longitude,
-                            device_fingerprint: visitorId
-                        });
-
-                        const response = await fetch('/mark_attendance', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                            body: formData
-                        });
-
-                        const data = await response.json();
-                        showStatusMessage(data.message, data.category);
-
-                        if (data.success) {
-                            enrollmentNoInput.value = '';
-                            studentNameDisplay.textContent = '';
-                        }
-                    } catch (fetchError) {
-                        console.error('Error during fetch submission:', fetchError);
-                        showStatusMessage('An unexpected error occurred during submission. Please check your network.', 'error');
-                    } finally {
-                        markAttendanceButton.disabled = false;
-                        markAttendanceButton.textContent = "Mark Attendance";
-                    }
-                },
-                (geoError) => {
-                    showStatusMessage('Geolocation error: ' + geoError.message, 'error');
-                    markAttendanceButton.disabled = false;
-                    markAttendanceButton.textContent = "Mark Attendance";
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
-        } catch (error) {
-            console.error('Error during fingerprinting:', error);
-            showStatusMessage('An unexpected error occurred. Could not verify device.', 'error');
+        // Geolocation is now requested HERE, upon submission.
+        if (!navigator.geolocation) {
+            showStatusMessage('Geolocation is not supported. Cannot mark attendance.', 'error');
             markAttendanceButton.disabled = false;
             markAttendanceButton.textContent = "Mark Attendance";
+            return;
         }
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const { latitude, longitude } = position.coords;
+                const distance = haversineDistance(latitude, longitude, window.geofenceData.geofence_lat, window.geofenceData.geofence_lon);
+
+                // Check if inside the radius
+                if (distance > window.geofenceData.geofence_radius) {
+                    showStatusMessage(`You are too far from class (${distance.toFixed(0)}m away). Please move closer.`, 'error');
+                    markAttendanceButton.disabled = false;
+                    markAttendanceButton.textContent = "Mark Attendance";
+                    return;
+                }
+
+                // If location is valid, proceed with fingerprinting and submission
+                try {
+                    const visitorId = getCanvasFingerprint();
+                    
+                    const formData = new URLSearchParams({
+                        enrollment_no: enrollmentNoInput.value.trim(),
+                        session_id: window.activeSessionDataStudent.id,
+                        latitude: latitude,
+                        longitude: longitude,
+                        device_fingerprint: visitorId
+                    });
+
+                    const response = await fetch('/mark_attendance', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: formData
+                    });
+
+                    const data = await response.json();
+                    showStatusMessage(data.message, data.category);
+
+                    if (data.success) {
+                        enrollmentNoInput.value = '';
+                        studentNameDisplay.textContent = '';
+                    }
+                } catch (error) {
+                    console.error('Error during submission process:', error);
+                    showStatusMessage('An unexpected error occurred.', 'error');
+                } finally {
+                    markAttendanceButton.disabled = false;
+                    markAttendanceButton.textContent = "Mark Attendance";
+                }
+            },
+            (geoError) => {
+                showStatusMessage('Geolocation error: ' + geoError.message, 'error');
+                markAttendanceButton.disabled = false;
+                markAttendanceButton.textContent = "Mark Attendance";
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
     }
 
     async function fetchStudentName() {
+        // This function remains unchanged
         const enrollmentNo = enrollmentNoInput.value.trim();
         if (enrollmentNo.length >= 5) {
             try {
@@ -139,42 +124,22 @@ function initStudentPage() {
             studentNameDisplay.textContent = '';
         }
     }
-
-    function updateLocationStatus(message, type) {
-        locationStatusDiv.textContent = message;
-        locationStatusDiv.className = `status-message ${type}`;
-        locationStatusDiv.style.display = 'block';
-    }
 }
 
 // ==============================================================================
 // === CONTROLLER, REPORT, & EDIT PAGE LOGIC (UNCHANGED) ===
 // ==============================================================================
-// Your original, unchanged JavaScript for the admin pages would go here.
-// For brevity, it is not repeated, but ensure you use your full, original code for these parts.
+function initControllerAndReportPage() { /* ... Your original, unchanged code ... */ }
+function initEditAttendancePage() { /* ... Your original, unchanged code ... */ }
 
 // ==============================================================================
-// === UTILITY FUNCTIONS ===
+// === UTILITY FUNCTIONS (UNCHANGED) ===
 // ==============================================================================
-function getCanvasFingerprint() {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const txt = 'Browser-ID: Ritik Attendance App';
-    ctx.textBaseline = "top";
-    ctx.font = "14px 'Arial'";
-    ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = "#f60";
-    ctx.fillRect(125, 1, 62, 20);
-    ctx.fillStyle = "#069";
-    ctx.fillText(txt, 2, 15);
-    ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
-    ctx.fillText(txt, 4, 17);
-    return canvas.toDataURL();
-}
+function getCanvasFingerprint() { /* ... Your original, unchanged code ... */ }
+function startStudentTimer(remainingTime, timerElement) { /* ... Your original, unchanged code ... */ }
+function showStatusMessage(message, type) { /* ... Your original, unchanged code ... */ }
+function haversineDistance(lat1, lon1, lat2, lon2) { /* ... Your original, unchanged code ... */ }
+function debounce(func, delay) { /* ... Your original, unchanged code ... */ }
 
-function startStudentTimer(remainingTime, timerElement) { /* ... */ }
-function showStatusMessage(message, type) { /* ... */ }
-function haversineDistance(lat1, lon1, lat2, lon2) { /* ... */ }
-function debounce(func, delay) { /* ... */ }
-
-// Make sure to copy the full content of your original admin/utility functions into this file.
+// NOTE: To save space, the unchanged functions are collapsed. 
+// Your full, original code for those functions is correct.

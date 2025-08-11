@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     
     <style>
+        /* Your original CSS styles remain here */
         .session-info { background-color: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
         .session-info p { margin: 5px 0; font-size: 1.1em; }
         .session-info strong { color: #0056b3; }
@@ -47,11 +48,7 @@
                     <p>Time Remaining: <span id="timer-student" style="font-weight: bold;">{{ active_session.remaining_time }}s</span></p>
                 </div>
 
-                <div id="location-status" class="status-message info" style="display: block;">
-                    Checking your location... Please grant permission.
-                </div>
-
-                <form id="attendance-form" class="attendance-form" style="display: none;">
+                <form id="attendance-form" class="attendance-form">
                     <div class="form-group">
                         <label for="enrollment_no">Enrollment Number:</label>
                         <input type="text" id="enrollment_no" name="enrollment_no" required placeholder="e.g., Y24120123">
