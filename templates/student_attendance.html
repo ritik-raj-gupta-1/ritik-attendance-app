@@ -4,17 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mark BA Attendance (by Ritik)</title>
-    <script src="https://cdn/tailwindcss.com"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     
-    <script
-      src="https://fpcdn.io/v3/7P3g5sW2p2I4D1s9sYy4"
-      integrity="sha384-VTsk9n1X9Y2M3xSC9y2pS5OunlJw2/M/3G2pB9z4X3u+eFBd9S1K00vjK/2sWRIr"
-      crossorigin="anonymous"
-    ></script>
+    <script src="https://fpcdn.io/v3/7P3g5sW2p2I4D1s9sYy4"></script>
 
     <style>
-        /* Specific styles for student attendance page from your original file */
+        /* Your original CSS styles remain here */
         .session-info {
             background-color: #e9ecef;
             padding: 15px;
@@ -53,52 +51,23 @@
             background-color: #cccccc;
             cursor: not-allowed;
         }
-        /* Status Message Styles (common to all pages with status-message div) */
         .status-message {
             padding: 10px;
             margin-bottom: 15px;
             border-radius: 4px;
             font-weight: bold;
             text-align: center;
-            display: none; /* Hidden by default, shown by JS */
+            display: none;
         }
-        .status-message.success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .status-message.error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        .status-message.info {
-            background-color: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-        .status-message.warning {
-            background-color: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeeba;
-        }
-
-        /* Responsive adjustments for smaller screens */
+        .status-message.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-message.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status-message.info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .status-message.warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
         @media (max-width: 600px) {
-            .container {
-                margin: 10px;
-                padding: 15px;
-            }
-            .header h2 {
-                font-size: 1.5em;
-            }
-            .button {
-                width: 100%;
-                box-sizing: border-box; /* Include padding and border in the element's total width */
-            }
-            .form-group input[type="text"] {
-                width: 100%; /* Make input full width on small screens */
-            }
+            .container { margin: 10px; padding: 15px; }
+            .header h2 { font-size: 1.5em; }
+            .button { width: 100%; box-sizing: border-box; }
+            .form-group input[type="text"] { width: 100%; }
         }
     </style>
 </head>
@@ -143,7 +112,6 @@
         </div>
     </div>
     <script>
-        // Pass session and geofence data to JavaScript
         window.activeSessionDataStudent = {{ active_session | tojson | default('{}', true) }};
         window.geofenceData = {{ geofence_data | tojson | default('{}', true) }};
     </script>
