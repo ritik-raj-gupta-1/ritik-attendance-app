@@ -76,7 +76,7 @@ INSERT INTO users (username, role) VALUES ('controller', 'controller') ON CONFLI
 
 -- Insert the single class data for BA - Anthropology
 INSERT INTO classes (class_name, controller_id, geofence_lat, geofence_lon, geofence_radius) VALUES
-('BA - Anthropology', (SELECT id FROM users WHERE username = 'controller'), 23.828889, 78.775000, 30) -- RADIUS SET TO 30m
+('BA - Anthropology', (SELECT id FROM users WHERE username = 'controller'), 23.828889, 78.775278, 40) -- RADIUS SET TO 40m
 ON CONFLICT (class_name) DO NOTHING;
 
 -- Insert all BA student data (77 students)
