@@ -5,62 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Attendance</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-        /* Add styles for loading and error messages */
-        .message {
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 5px;
-            font-weight: bold;
-            text-align: center;
-        }
-        .loading {
-            background-color: #e0f7fa;
-            color: #00796b;
-        }
-        .error {
-            background-color: #ffebee;
-            color: #d32f2f;
-        }
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        .data-table th, .data-table td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        .data-table th {
-            background-color: #f2f2f2;
-        }
-        /* Simple and solid checkbox styling */
-        .attendance-checkbox {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-            vertical-align: middle;
-            margin: 0; /* Remove default margin */
-        }
-    </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>Edit Attendance for Session {{ session.id }}</h2>
-            <p>Class: {{ session.class_name }} | Start Time: {{ session.start_time }}</p>
-            <a href="{{ url_for('controller_dashboard') }}" class="back-link button">Back to Dashboard</a>
+            <h2>Edit Attendance for {{ attendance_date }}</h2>
+            <p>Class: {{ class_name }}</p>
+            <a href="{{ url_for('attendance_report') }}" class="back-link button">Back to Report</a>
         </div>
 
-        {# Global status message div for JavaScript #}
         <div id="status-message" class="status-message"></div>
 
-        <div id="loading-message" class="message loading" style="display: none;">Loading students...</div>
-        <div id="error-message" class="message error" style="display: none;"></div>
-
         <div class="dashboard-content">
-            <table id="attendance-table" class="data-table" data-session-id="{{ session.id }}">
+            <table id="attendance-table" class="data-table" data-attendance-date="{{ attendance_date }}">
                 <thead>
                     <tr>
                         <th>Enrollment No.</th>
@@ -69,8 +26,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {# Students will be loaded here by JavaScript #}
-                    <tr><td colspan="3">Loading students...</td></tr>
+                    <tr><td colspan="3" style="text-align:center;">Loading students...</td></tr>
                 </tbody>
             </table>
         </div>

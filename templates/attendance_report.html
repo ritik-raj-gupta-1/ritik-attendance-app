@@ -6,121 +6,13 @@
     <title>Attendance Report</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        .report-table-container {
-            overflow-x: auto; /* Allows horizontal scrolling for wide tables */
-            margin-top: 20px;
-        }
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        .data-table th, .data-table td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center; /* Center align all content */
-            white-space: nowrap; /* Prevent wrapping in cells */
-        }
-        .data-table th {
-            background-color: #f2f2f2;
-            font-weight: bold;
-            position: sticky; /* Sticky header for horizontal scroll */
-            left: 0;
-            z-index: 1;
-        }
-        .data-table td.date-column {
-            background-color: #f2f2f2; /* Highlight date column */
-            font-weight: bold;
-            position: sticky; /* Sticky date column for horizontal scroll */
-            left: 0;
-            z-index: 1;
-        }
-        /* Specific colors for status */
+        .report-table-container { overflow-x: auto; margin-top: 20px; }
+        .data-table th, .data-table td { text-align: center; white-space: nowrap; }
+        .data-table th:first-child, .data-table td:first-child { text-align: left; }
         .status-present { color: green; font-weight: bold; }
         .status-absent { color: red; font-weight: bold; }
-        .status-holiday { color: orange; font-weight: bold; }
-
-        /* Styles for the delete button (simple and solid) */
-        .delete-day-btn {
-            background-color: #dc3545; /* Red */
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.8em;
-            margin-left: 10px;
-            transition: background-color 0.2s ease; /* Subtle transition */
-        }
-        .delete-day-btn:hover {
-            background-color: #c82333; /* Darker red on hover */
-        }
-        /* Custom Modal Styles (for delete confirmation) */
-        .modal {
-            display: none; /* Hidden by default */
-            position: fixed; /* Stay in place */
-            z-index: 1000; /* Sit on top */
-            left: 0;
-            top: 0;
-            width: 100%; /* Full width */
-            height: 100%; /* Full height */
-            overflow: auto; /* Enable scroll if needed */
-            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-            padding-top: 60px;
-        }
-
-        .modal-content {
-            background-color: #fefefe;
-            margin: 5% auto; /* 15% from the top and centered */
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%; /* Could be more or less, depending on screen size */
-            max-width: 500px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            position: relative;
-            text-align: center;
-        }
-
-        .close-button {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            position: absolute;
-            top: 10px;
-            right: 15px;
-        }
-
-        .close-button:hover,
-        .close-button:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
-
-        .modal-buttons {
-            margin-top: 20px;
-        }
-
-        .modal-buttons button {
-            padding: 10px 20px;
-            margin: 0 10px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        .modal-buttons .confirm-yes {
-            background-color: #dc3545; /* Red for destructive action */
-            color: white;
-        }
-
-        .modal-buttons .confirm-no {
-            background-color: #6c757d; /* Grey for cancel */
-            color: white;
-        }
+        .edit-day-btn { background-color: #007bff; color: white; text-decoration: none; display: inline-block; padding: 5px 10px; border-radius: 5px; font-size: 0.9em; }
+        .edit-day-btn:hover { background-color: #0056b3; }
     </style>
 </head>
 <body>
@@ -130,7 +22,6 @@
             <a href="{{ url_for('controller_dashboard') }}" class="back-link button">Back to Dashboard</a>
         </div>
         
-        {# Flash messages from Flask #}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <ul class="flashes">
@@ -141,39 +32,36 @@
             {% endif %}
         {% endwith %}
 
-        {# Global status message div for JavaScript #}
         <div id="status-message" class="status-message"></div>
 
         <div class="dashboard-content">
-            <p>This report shows daily attendance for all BA - Anthropology students.</p>
-            <p>
-                <span style="color: green; font-weight: bold;">Present</span> | 
-                <span style="color: red; font-weight: bold;">Absent</span> | 
-                <span style="color: orange; font-weight: bold;">Holiday</span> (for weekends with no attendance)
-            </p>
-            <a href="{{ url_for('export_attendance_csv') }}" class="button" style="background-color: #6c757d; margin-bottom: 20px;">Export Daily Report to CSV</a>
+            <p>This report shows daily attendance. You can edit records for the past 7 days.</p>
 
             {% if report_data %}
             <div class="report-table-container">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th class="date-column">Date</th>
-                            {% for student in report_data[0].students %}
+                            <th style="text-align:left;">Date</th>
+                            {% for student in students %}
                             <th>{{ student.name }}<br>({{ student.enrollment_no }})</th>
                             {% endfor %}
-                            <th>Actions</th> {# New column for delete button #}
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for daily_entry in report_data %}
+                        {% set entry_date = daily_entry.date | to_datetime %}
+                        {% set is_editable = (now.date() - entry_date.date()).days < 7 %}
                         <tr>
-                            <td class="date-column">{{ daily_entry.date }}</td>
+                            <td style="font-weight:bold; text-align:left;">{{ daily_entry.date }}</td>
                             {% for student_status in daily_entry.students %}
                             <td class="status-{{ student_status.status | lower }}">{{ student_status.status }}</td>
                             {% endfor %}
                             <td>
-                                <button class="delete-day-btn" data-date="{{ daily_entry.date }}">Delete Day</button>
+                                {% if is_editable %}
+                                <a href="{{ url_for('edit_attendance', date_str=daily_entry.date) }}" class="edit-day-btn">Edit</a>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -182,22 +70,9 @@
             </div>
             {% else %}
             <div class="info-message">
-                No attendance data available yet for BA - Anthropology.
+                No attendance data available yet. Start a session to begin recording.
             </div>
             {% endif %}
-
-            {# Custom Confirmation Modal Structure - Added here for attendance_report.html #}
-            <div id="confirmation-modal" class="modal">
-                <div class="modal-content">
-                    <span class="close-button">&times;</span>
-                    <p id="confirm-message"></p>
-                    <div class="modal-buttons">
-                        <button id="confirm-yes" class="confirm-yes">Yes, Delete</button>
-                        <button id="confirm-no" class="confirm-no">No, Cancel</button>
-                    </div>
-                </div>
-            </div>
-
         </div>
     </div>
     <script src="{{ url_for('static', filename='main.js') }}"></script>

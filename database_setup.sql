@@ -1,16 +1,13 @@
 -- This script sets up the PostgreSQL database for the attendance system.
 -- It is designed to be run once to create all necessary tables and insert initial data.
 
--- IMPORTANT: These DROP TABLE statements will delete all existing data in these tables.
--- This is crucial for a clean setup.
--- CASCADE ensures that dependent objects (like foreign keys) are also dropped.
+-- Drop tables in reverse order of dependency to ensure clean setup
 DROP TABLE IF EXISTS attendance_records CASCADE;
+DROP TABLE IF EXISTS session_ips CASCADE;
 DROP TABLE IF EXISTS attendance_sessions CASCADE;
 DROP TABLE IF EXISTS classes CASCADE;
 DROP TABLE IF EXISTS students CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
-DROP TABLE IF EXISTS daily_attendance_ips CASCADE;
-DROP TABLE IF EXISTS session_device_fingerprints CASCADE; -- Drop the new table if it exists
 
 -- Table for the single controller user
 CREATE TABLE users (
@@ -27,17 +24,14 @@ CREATE TABLE students (
     batch VARCHAR(50) NOT NULL
 );
 
--- Table for class data
+-- Table for class data (no longer holds location data)
 CREATE TABLE classes (
     id SERIAL PRIMARY KEY,
     class_name VARCHAR(100) UNIQUE NOT NULL,
-    controller_id INTEGER REFERENCES users(id),
-    geofence_lat REAL,
-    geofence_lon REAL,
-    geofence_radius INT
+    controller_id INTEGER REFERENCES users(id)
 );
 
--- Table to log attendance sessions
+-- Table to log attendance sessions with dynamic location
 CREATE TABLE attendance_sessions (
     id SERIAL PRIMARY KEY,
     class_id INT REFERENCES classes(id),
@@ -46,6 +40,9 @@ CREATE TABLE attendance_sessions (
     start_time TIMESTAMPTZ NOT NULL,
     end_time TIMESTAMPTZ NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    geofence_lat REAL, -- Location is now per-session
+    geofence_lon REAL,
+    geofence_radius INT,
     last_updated TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -58,28 +55,27 @@ CREATE TABLE attendance_records (
     latitude REAL,
     longitude REAL,
     ip_address TEXT,
-    UNIQUE (session_id, student_id) -- CRITICAL: Ensures unique attendance per student per session
+    UNIQUE (session_id, student_id)
 );
 
--- NEW, SIMPLE TABLE for Device Fingerprinting
-CREATE TABLE session_device_fingerprints (
+-- NEW, PRIMARY VERIFICATION TABLE for IP Addresses
+CREATE TABLE session_ips (
     id SERIAL PRIMARY KEY,
     session_id INT REFERENCES attendance_sessions(id) ON DELETE CASCADE,
     student_id INT REFERENCES students(id) ON DELETE CASCADE,
-    fingerprint TEXT NOT NULL,
-    UNIQUE (session_id, student_id), -- A student can only have one fingerprint per session
-    UNIQUE (session_id, fingerprint) -- A fingerprint can only be used once per session
+    ip_address TEXT NOT NULL,
+    UNIQUE (session_id, ip_address) -- CRITICAL: An IP can only be used once per session
 );
 
 -- Insert the single controller user
 INSERT INTO users (username, role) VALUES ('controller', 'controller') ON CONFLICT (username) DO NOTHING;
 
--- Insert the single class data for BA - Anthropology
-INSERT INTO classes (class_name, controller_id, geofence_lat, geofence_lon, geofence_radius) VALUES
-('BA - Anthropology', (SELECT id FROM users WHERE username = 'controller'), 23.828889, 78.775278, 40) -- RADIUS SET TO 40m
+-- Insert the class data (without geofence)
+INSERT INTO classes (class_name, controller_id) VALUES
+('BA - Anthropology', (SELECT id FROM users WHERE username = 'controller'))
 ON CONFLICT (class_name) DO NOTHING;
 
--- Insert all BA student data (77 students)
+-- Insert all BA student data
 INSERT INTO students (enrollment_no, name, batch) VALUES
 ('Y24120001', 'ANSHUL TAMRAKAR', 'BA'),
 ('Y24120002', 'KHUSHVEER SINGH SURYA', 'BA'),

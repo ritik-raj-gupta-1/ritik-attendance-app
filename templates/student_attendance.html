@@ -3,66 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mark BA Attendance (by Ritik)</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    
+    <title>Mark BA Attendance(by Ritik)</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    
-    <style>
-        /* Your original CSS styles remain here */
-        .session-info { background-color: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
-        .session-info p { margin: 5px 0; font-size: 1.1em; }
-        .session-info strong { color: #0056b3; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group input[type="text"] { width: calc(100% - 20px); padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em; text-transform: uppercase; }
-        .student-name-display { margin-top: 10px; font-weight: bold; color: #007bff; }
-        .button:disabled { background-color: #cccccc; cursor: not-allowed; }
-        .status-message { padding: 10px; margin-bottom: 15px; border-radius: 4px; font-weight: bold; text-align: center; display: none; }
-        .status-message.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .status-message.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .status-message.info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
-        .status-message.warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
-        
-        /* **NEW STYLES FOR FINAL LIST** */
-        .final-attendance-list {
-            background-color: #d4edda; /* Light green */
-            border: 1px solid #c3e6cb;
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-        .final-attendance-list h3 {
-            color: #155724; /* Dark green */
-            margin-top: 0;
-            text-align: center;
-        }
-        .final-attendance-list ul {
-            list-style-type: none;
-            padding: 0;
-            column-count: 2; /* Display in two columns on wider screens */
-        }
-        .final-attendance-list li {
-            background-color: #ffffff;
-            padding: 8px;
-            margin-bottom: 5px;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-        @media (max-width: 600px) {
-            .container { margin: 10px; padding: 15px; }
-            .header h2 { font-size: 1.5em; }
-            .button { width: 100%; box-sizing: border-box; }
-            .form-group input[type="text"] { width: 100%; }
-            .final-attendance-list ul { column-count: 1; } /* Single column on mobile */
-        }
-    </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>Mark BA Attendance (by Ritik)</h2>
+            <h2>Mark BA Attendance</h2>
             <p>Enter your enrollment number to mark attendance for the active BA - Anthropology session.</p>
         </div>
 
@@ -70,50 +17,34 @@
 
         <div class="dashboard-content">
             
-            <!-- **MODIFIED LOGIC FOR DISPLAYING CONTENT** -->
             {% if active_session %}
-                <!-- STATE 1: Session is currently active -->
+                <!-- State 1: Session is currently active -->
                 <div class="session-info">
-                    <p>Active Session for: <strong>{{ active_session.class_name }}</strong></p>
+                    <p>Active Session for: <strong>BA - Anthropology</strong></p>
                     <p>Time Remaining: <span id="timer-student" style="font-weight: bold;">{{ active_session.remaining_time }}s</span></p>
                 </div>
 
                 <form id="attendance-form" class="attendance-form">
                     <div class="form-group">
                         <label for="enrollment_no">Enrollment Number:</label>
-                        <input type="text" id="enrollment_no" name="enrollment_no" required placeholder="e.g., Y24120123">
+                        <input type="text" id="enrollment_no" name="enrollment_no" required placeholder="e.g., Y24120123" style="text-transform: uppercase;">
                         <div id="student-name-display" class="student-name-display"></div>
                     </div>
                     <button type="submit" id="mark-btn" class="button">Mark Attendance</button>
                 </form>
 
-            {% elif present_students %}
-                <!-- STATE 2: No active session, but attendance was taken today. Show the final list. -->
-                <div class="final-attendance-list">
-                    <h3>Attendance for Today ({{ todays_date }})</h3>
-                    <p>The following students have been marked present today.</p>
-                    <ul>
-                        {% for student in present_students %}
-                            <li>{{ student.name }} ({{ student.enrollment_no }})</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-
             {% else %}
-                <!-- STATE 3: No active session and no attendance recorded for today yet. -->
+                <!-- State 2: No active session -->
                 <div class="info-message">
-                    No active attendance session for BA - Anthropology. Please check back later.
+                    There is no active attendance session right now. Please check back later.
                 </div>
             {% endif %}
             
-            <div class="mt-8 text-center">
-                <a href="https://utdgames.carrd.co" target="_blank" class="button button-primary">UTD Games</a>
-            </div>
         </div>
     </div>
     <script>
+        // Pass session data to JavaScript
         window.activeSessionDataStudent = {{ active_session | tojson | safe }};
-        window.geofenceData = {{ geofence_data | tojson | safe }};
     </script>
     <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
