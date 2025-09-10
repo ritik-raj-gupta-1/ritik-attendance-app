@@ -3,24 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mark BA Attendance(by Ritik)</title>
+    <title>Mark BA Attendance (by Ritik)</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h2>Mark BA Attendance</h2>
-            <p>Enter your enrollment number to mark attendance for the active BA - Anthropology session.</p>
+            <p>Enter your enrollment number to mark attendance for the active {{ class_name }} session.</p>
         </div>
 
-        <div id="status-message" class="status-message"></div>
+        <div id="status-message" class="status-message" style="display: none;"></div>
 
         <div class="dashboard-content">
             
             {% if active_session %}
                 <!-- State 1: Session is currently active -->
                 <div class="session-info">
-                    <p>Active Session for: <strong>BA - Anthropology</strong></p>
+                    <p>Active Session for: <strong>{{ class_name }}</strong></p>
                     <p>Time Remaining: <span id="timer-student" style="font-weight: bold;">{{ active_session.remaining_time }}s</span></p>
                 </div>
 
@@ -43,9 +43,9 @@
         </div>
     </div>
     <script>
-        // Pass session data to JavaScript
         window.activeSessionDataStudent = {{ active_session | tojson | safe }};
     </script>
     <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>
+

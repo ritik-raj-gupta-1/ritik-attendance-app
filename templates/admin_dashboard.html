@@ -24,18 +24,17 @@
             {% endif %}
         {% endwith %}
 
-        <div id="status-message" class="status-message"></div>
+        <div id="status-message" class="status-message" style="display: none;"></div>
 
         <div class="dashboard-content">
             <div class="section-card">
-                <h3>Attendance Session Control (BA - Anthropology)</h3>
+                <h3>Attendance Session Control ({{ class_name }})</h3>
                 {% if active_session %}
                     <p>Active Session (ID: {{ active_session.id }})</p>
-                    <p>Location set at Lat: {{ active_session.geofence_lat|round(5) }}, Lon: {{ active_session.geofence_lon|round(5) }}</p>
                     <p>Time Remaining: <span id="timer-{{ active_session.id }}" style="font-weight: bold;">{{ active_session.remaining_time }}s</span></p>
                     <button type="button" class="button end-session-btn" data-session-id="{{ active_session.id }}" style="background-color: #dc3545;">End Session Now</button>
                 {% else %}
-                    <p>No active session for BA - Anthropology.</p>
+                    <p>No active session for {{ class_name }}.</p>
                     <button type="button" id="start-session-btn" class="button">Start New Session</button>
                 {% endif %}
             </div>
@@ -48,9 +47,9 @@
         </div>
     </div>
     <script>
-        // Pass active session data to JavaScript for the timer
         window.activeSessionData = {{ active_session | tojson | default('{}', true) }};
     </script>
     <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>
+

@@ -14,7 +14,7 @@
             <a href="{{ url_for('attendance_report') }}" class="back-link button">Back to Report</a>
         </div>
 
-        <div id="status-message" class="status-message"></div>
+        <div id="status-message" class="status-message" style="display: none;"></div>
 
         <div class="dashboard-content">
             <table id="attendance-table" class="data-table" data-attendance-date="{{ attendance_date }}">
@@ -34,3 +34,4 @@
     <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>
+

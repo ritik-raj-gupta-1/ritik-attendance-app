@@ -18,7 +18,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h2>Daily Attendance Report (BA - Anthropology)</h2>
+            <h2>Daily Attendance Report ({{ class_name }})</h2>
             <a href="{{ url_for('controller_dashboard') }}" class="back-link button">Back to Dashboard</a>
         </div>
         
@@ -32,11 +32,7 @@
             {% endif %}
         {% endwith %}
 
-        <div id="status-message" class="status-message"></div>
-
         <div class="dashboard-content">
-            <p>This report shows daily attendance. You can edit records for the past 7 days.</p>
-
             {% if report_data %}
             <div class="report-table-container">
                 <table class="data-table">
@@ -78,3 +74,4 @@
     <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>
+
