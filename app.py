@@ -352,8 +352,16 @@ def api_start_session():
             if cur.fetchone():
                 return jsonify({"success": False, "message": "An active session already exists."}), 409
 
-            cur.execute("INSERT INTO attendance_sessions (class_id, controller_id, start_time, end_time, is_active, session_lat, session_lon) VALUES (%s, %s, NOW(), NOW() + interval '5 minutes', TRUE, %s, %s) RETURNING id, end_time",
-                        (class_id, session['user_id'], data['latitude'], data['longitude']))
+            session_token = secrets.token_hex(16) # Generate the missing token
+            cur.execute(
+                """
+                INSERT INTO attendance_sessions 
+                (class_id, controller_id, session_token, start_time, end_time, is_active, session_lat, session_lon) 
+                VALUES (%s, %s, %s, NOW(), NOW() + interval '5 minutes', TRUE, %s, %s) 
+                RETURNING id, end_time
+                """,
+                (class_id, session['user_id'], session_token, data['latitude'], data['longitude'])
+            )
             new_session = cur.fetchone()
             conn.commit()
             return jsonify({
@@ -448,8 +456,11 @@ def api_update_daily_attendance():
             
             if not session_ids:
                 if is_present: # Only create a session if trying to mark someone present
-                    cur.execute("INSERT INTO attendance_sessions (class_id, controller_id, start_time, end_time, is_active) VALUES (%s, %s, %s, %s, FALSE) RETURNING id",
-                                (class_id, session['user_id'], datetime.combine(target_date, datetime.min.time(), tzinfo=timezone.utc), datetime.combine(target_date, datetime.min.time(), tzinfo=timezone.utc)))
+                    # Create a dummy session for the day to hold the record
+                    session_token = secrets.token_hex(16)
+                    start_of_day = datetime.combine(target_date, datetime.min.time(), tzinfo=timezone.utc)
+                    cur.execute("INSERT INTO attendance_sessions (class_id, controller_id, session_token, start_time, end_time, is_active) VALUES (%s, %s, %s, %s, %s, FALSE) RETURNING id",
+                                (class_id, session['user_id'], session_token, start_of_day, start_of_day))
                     new_session_id = cur.fetchone()[0]
                     session_ids.append(new_session_id)
                 else: # If trying to mark absent and no session exists, do nothing.
