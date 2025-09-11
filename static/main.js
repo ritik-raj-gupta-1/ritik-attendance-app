@@ -1,263 +1,185 @@
 /**
- * Upgraded Frontend logic for the B.A. Anthropology Attendance System.
- * Handles student submissions, controller actions, and professional editing.
+ * Frontend logic for the B.A. Anthropology Attendance System.
+ * Handles student submissions, controller actions, and data editing.
  */
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize logic based on the current page's content
-    if (document.getElementById('attendance-form')) initStudentPage();
-    if (document.getElementById('start-session-btn') || document.querySelector('.end-session-btn')) initControllerPage();
-    if (document.getElementById('attendance-table')) initEditAttendancePage();
+    // Initialize logic based on the current page
+    if (document.getElementById('attendance-form')) {
+        initStudentPage();
+    }
+    if (document.getElementById('start-session-btn')) {
+        initControllerPage();
+    }
+    if (document.getElementById('attendance-table')) {
+        initEditAttendancePage();
+    }
 });
 
-// --- UTILITY FUNCTIONS ---
 
-/**
- * Delays the execution of a function until after a specified time has passed since the last time it was invoked.
- * @param {Function} func The function to debounce.
- * @param {number} delay The delay in milliseconds.
- * @returns {Function} The debounced function.
- */
-const debounce = (func, delay) => {
-    let timeout;
-    return (...args) => {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func(...args), delay);
-    };
-};
-
-/**
- * Displays a temporary status message to the user.
- * @param {string} message The message to display.
- * @param {string} type The category ('success', 'error', 'info').
- * @param {number} [duration=6000] The duration in milliseconds.
- */
-function showStatusMessage(message, type, duration = 6000) {
-    const el = document.getElementById('status-message');
-    if (el) {
-        el.textContent = message;
-        el.className = `status-message ${type}`;
-        el.style.display = 'block';
-        setTimeout(() => {
-            el.style.display = 'none';
-        }, duration);
-    }
-}
-
-/**
- * Creates a robust countdown timer that resists browser tab throttling.
- * @param {string} endTimeISO - The end time as an ISO 8601 string.
- * @param {HTMLElement} timerElement - The element to display the timer in.
- * @returns {number} The interval ID for the timer.
- */
-function startRobustTimer(endTimeISO, timerElement) {
-    if (!endTimeISO || !timerElement) return;
-    const endTime = new Date(endTimeISO).getTime();
-
-    const updateTimer = () => {
-        const remaining = Math.round((endTime - Date.now()) / 1000);
-        if (remaining <= 0) {
-            clearInterval(timerInterval);
-            timerElement.textContent = "Session has ended.";
-            // If on the student page, hide the form
-            const form = document.getElementById('attendance-form');
-            if (form) form.style.display = 'none';
-        } else {
-            const minutes = Math.floor(remaining / 60);
-            const seconds = remaining % 60;
-            timerElement.textContent = `${minutes}m ${seconds.toString().padStart(2, '0')}s remaining`;
-        }
-    };
-
-    const timerInterval = setInterval(updateTimer, 1000);
-    updateTimer(); // Initial call to display immediately
-    return timerInterval;
-}
-
-
-// --- STUDENT PAGE LOGIC ---
-
+// =============================================================================
+// === STUDENT PAGE LOGIC ======================================================
+// =============================================================================
 function initStudentPage() {
-    // Ensure there is an active session before setting up event listeners
-    if (!window.activeSessionDataStudent || !window.activeSessionDataStudent.id) return;
-    
-    const form = document.getElementById('attendance-form');
+    const attendanceForm = document.getElementById('attendance-form');
+    if (!attendanceForm) return;
+
+    const markButton = document.getElementById('mark-btn');
     const enrollmentInput = document.getElementById('enrollment_no');
+    const studentNameDisplay = document.getElementById('student-name-display');
+    const timerElement = document.getElementById('timer-student');
+    const presentList = document.getElementById('present-students-list');
 
-    enrollmentInput.addEventListener('input', debounce(verifyStudentName, 350));
-    startLiveAttendanceList(window.activeSessionDataStudent.id);
-    startRobustTimer(window.activeSessionDataStudent.end_time, document.getElementById('timer-student'));
-    form.addEventListener('submit', handleAttendanceSubmit);
-}
-
-async function verifyStudentName() {
-    const enrollmentNo = document.getElementById('enrollment_no').value;
-    const nameDisplay = document.getElementById('student-name-display');
-    if (enrollmentNo.length < 5) {
-        nameDisplay.textContent = '';
+    // Safety check for active session data
+    if (!window.activeSessionDataStudent || !window.activeSessionDataStudent.id) {
+        if (markButton) markButton.disabled = true;
         return;
     }
-    nameDisplay.textContent = 'Verifying...';
-    try {
-        const response = await fetch(`/api/get_student_name/${enrollmentNo}`);
-        const result = await response.json();
-        nameDisplay.textContent = result.name;
-        nameDisplay.style.color = result.success ? 'green' : 'red';
-    } catch (error) {
-        nameDisplay.textContent = 'Network error.';
-        nameDisplay.style.color = 'red';
+
+    // Start the robust timer and live student list
+    startRobustTimer(window.activeSessionDataStudent.end_time, timerElement);
+    const liveListInterval = setInterval(() => fetchPresentStudents(window.activeSessionDataStudent.id, presentList), 10000);
+    fetchPresentStudents(window.activeSessionDataStudent.id, presentList); // Initial fetch
+
+    enrollmentInput.addEventListener('input', debounce(fetchStudentName, 300));
+    attendanceForm.addEventListener('submit', handleAttendanceSubmit);
+
+    /**
+     * Handles the form submission for marking attendance.
+     */
+    async function handleAttendanceSubmit(e) {
+        e.preventDefault();
+        markButton.disabled = true;
+        markButton.textContent = 'Verifying Location...';
+        showStatusMessage('Please wait, getting your precise location.', 'info');
+        showTroubleshootingTips(false); // Hide tips on new attempt
+
+        // This function attempts to get an accurate location and handles fallbacks.
+        getAccurateLocation(
+            async (position) => {
+                markButton.textContent = 'Submitting...';
+                const { latitude, longitude, accuracy } = position.coords;
+                
+                try {
+                    // *** THE FIX IS HERE: 'accuracy' is now included in the form data ***
+                    const formData = new URLSearchParams({
+                        enrollment_no: enrollmentInput.value.trim().toUpperCase(),
+                        session_id: window.activeSessionDataStudent.id,
+                        latitude: latitude,
+                        longitude: longitude,
+                        accuracy: accuracy 
+                    });
+
+                    const response = await fetch('/api/mark_attendance', {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    const result = await response.json();
+                    showStatusMessage(result.message, result.category);
+
+                    if (result.success) {
+                        attendanceForm.style.display = 'none';
+                        fetchPresentStudents(window.activeSessionDataStudent.id, presentList); // Immediately update list
+                        clearInterval(liveListInterval); // Stop polling once marked
+                    } else {
+                        markButton.disabled = false;
+                        markButton.textContent = 'Mark My Attendance';
+                        if (result.message.includes("away")) {
+                             showTroubleshootingTips(true);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Submission Fetch Error:', error);
+                    showStatusMessage('A network error occurred. Please try again.', 'error');
+                    markButton.disabled = false;
+                    markButton.textContent = 'Mark My Attendance';
+                }
+            },
+            (error) => {
+                // This is the final error handler from getAccurateLocation
+                showStatusMessage(error, 'error');
+                markButton.disabled = false;
+                markButton.textContent = 'Mark My Attendance';
+                showTroubleshootingTips(true);
+            }
+        );
     }
 }
 
-function startLiveAttendanceList(sessionId) {
-    const listContainer = document.getElementById('present-students-list');
-    if (!listContainer) return;
-    
-    const fetchAndUpdateList = async () => {
-        try {
-            const response = await fetch(`/api/get_present_students/${sessionId}`);
-            const result = await response.json();
-            const listElement = listContainer.querySelector('ul');
-            const titleElement = listContainer.querySelector('h4');
-            listElement.innerHTML = ''; // Clear previous list
-            
-            if (result.success && result.students.length > 0) {
-                titleElement.style.display = 'block';
-                result.students.forEach(s => {
-                    const li = document.createElement('li');
-                    li.textContent = `${s.enrollment_no} - ${s.name}`;
-                    listElement.appendChild(li);
-                });
-            } else {
-                titleElement.style.display = 'none';
-            }
-        } catch (error) {
-            console.error('Failed to fetch present students:', error);
-        }
-    };
 
-    fetchAndUpdateList(); // Initial fetch
-    // Set up polling to refresh the list every 10 seconds
-    window.attendanceListPoller = setInterval(fetchAndUpdateList, 10000);
-}
-
-async function handleAttendanceSubmit(e) {
-    e.preventDefault();
-    const button = document.getElementById('mark-btn');
-    button.disabled = true;
-    button.textContent = 'Getting Precise Location...';
-    showStatusMessage('Please wait, getting your precise location. This may take up to 25 seconds.', 'info');
-
-    navigator.geolocation.getCurrentPosition(
-        // Success callback
-        async (position) => {
-            button.textContent = 'Submitting...';
-            try {
-                const formData = new URLSearchParams({
-                    enrollment_no: document.getElementById('enrollment_no').value,
-                    session_id: window.activeSessionDataStudent.id,
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                });
-                const response = await fetch('/api/mark_attendance', { method: 'POST', body: formData });
-                const result = await response.json();
-                showStatusMessage(result.message, result.success ? 'success' : 'error');
-
-                if (result.success) {
-                    document.getElementById('attendance-form').style.display = 'none';
-                    // Immediately refresh the present list for instant feedback
-                    if (window.attendanceListPoller) clearInterval(window.attendanceListPoller);
-                    setTimeout(() => startLiveAttendanceList(window.activeSessionDataStudent.id), 500);
-                } else {
-                    button.disabled = false;
-                    button.textContent = 'Mark My Attendance';
-                }
-            } catch (error) {
-                showStatusMessage('A network error occurred during submission.', 'error');
-                button.disabled = false;
-                button.textContent = 'Mark My Attendance';
-            }
-        },
-        // Error callback
-        (geoError) => {
-            let message = 'Geolocation Error: ' + geoError.message;
-            if (geoError.code === 1) message = 'You must allow location access to mark attendance.';
-            if (geoError.code === 3) message = 'Could not get location in time. Please try again from a clear area.';
-            showStatusMessage(message, 'error');
-            button.disabled = false;
-            button.textContent = 'Mark My Attendance';
-        },
-        // Geolocation options for high accuracy and longer timeout
-        { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 }
-    );
-}
-
-// --- CONTROLLER & EDIT PAGE LOGIC ---
-
+// =============================================================================
+// === CONTROLLER & EDIT PAGE LOGIC ============================================
+// =============================================================================
 function initControllerPage() {
     const startButton = document.getElementById('start-session-btn');
-    if (startButton) startButton.addEventListener('click', handleStartSession);
+    const endButton = document.querySelector('.end-session-btn');
+    const timerElement = document.getElementById(`timer-${window.activeSessionData?.id}`);
 
-    if (window.activeSessionData && window.activeSessionData.end_time) {
-        startRobustTimer(window.activeSessionData.end_time, document.querySelector('[id^="timer-"]'));
-        document.querySelectorAll('.end-session-btn').forEach(btn => btn.addEventListener('click', handleEndSession));
+    if (window.activeSessionData?.end_time && timerElement) {
+        startRobustTimer(window.activeSessionData.end_time, timerElement);
     }
-}
 
-function handleStartSession() {
-    const button = this;
-    button.disabled = true;
-    button.textContent = 'Getting Location...';
+    if (startButton) {
+        startButton.addEventListener('click', async () => {
+            startButton.disabled = true;
+            startButton.textContent = 'Getting Location...';
+            showStatusMessage('Getting your location to start the session.', 'info');
 
-    navigator.geolocation.getCurrentPosition(
-        async (position) => {
-            button.textContent = 'Starting Session...';
-            try {
-                const response = await fetch('/api/start_session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
-                });
-                const result = await response.json();
-                showStatusMessage(result.message, result.success ? 'success' : 'error');
-                if(result.success) setTimeout(() => window.location.reload(), 1500);
-                else { button.disabled = false; button.textContent = 'Start New Session'; }
-            } catch (error) {
-                showStatusMessage('Network error starting session.', 'error');
-                button.disabled = false; button.textContent = 'Start New Session';
-            }
-        },
-        (geoError) => {
-            showStatusMessage('Geolocation Error: ' + geoError.message, 'error');
-            button.disabled = false; button.textContent = 'Start New Session';
-        },
-        { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 }
-    );
-}
-
-async function handleEndSession() {
-    const sessionId = this.dataset.sessionId;
-    this.disabled = true;
-    this.textContent = 'Ending...';
-    try {
-        await fetch(`/api/end_session/${sessionId}`, { method: 'POST' });
-        window.location.reload();
-    } catch(error) {
-        showStatusMessage('Failed to end session.', 'error');
-        this.disabled = false;
-        this.textContent = 'End Session Now';
+            getAccurateLocation(
+                async (position) => {
+                    startButton.textContent = 'Starting Session...';
+                    const { latitude, longitude } = position.coords;
+                    try {
+                        const response = await fetch('/api/start_session', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ latitude, longitude }),
+                        });
+                        const result = await response.json();
+                        showStatusMessage(result.message, result.category);
+                        if (result.success) {
+                            setTimeout(() => window.location.reload(), 1500);
+                        } else {
+                            startButton.disabled = false;
+                            startButton.textContent = 'Start New Session';
+                        }
+                    } catch (error) {
+                        showStatusMessage('A network error occurred.', 'error');
+                        startButton.disabled = false;
+                        startButton.textContent = 'Start New Session';
+                    }
+                },
+                (error) => {
+                    showStatusMessage(error, 'error');
+                    startButton.disabled = false;
+                    startButton.textContent = 'Start New Session';
+                }
+            );
+        });
+    }
+    
+    if(endButton) {
+        endButton.addEventListener('click', async function() {
+            this.disabled = true;
+            const sessionId = this.dataset.sessionId;
+            const response = await fetch(`/api/end_session/${sessionId}`, { method: 'POST' });
+            const result = await response.json();
+            showStatusMessage(result.message, 'info');
+            setTimeout(() => window.location.reload(), 1500);
+        });
     }
 }
 
 function initEditAttendancePage() {
     const table = document.getElementById('attendance-table');
-    const date = table.dataset.attendanceDate;
     const tbody = table.querySelector('tbody');
+    const attendanceDate = table.dataset.attendanceDate;
 
-    fetch(`/api/get_students_for_day_edit/${date}`)
-        .then(res => res.json())
+    fetch(`/api/get_students_for_edit/${attendanceDate}`)
+        .then(response => response.json())
         .then(data => {
-            tbody.innerHTML = '';
             if (data.success) {
+                tbody.innerHTML = ''; // Clear loading message
                 data.students.forEach(student => {
                     const row = `
                         <tr>
@@ -273,32 +195,165 @@ function initEditAttendancePage() {
                     `;
                     tbody.insertAdjacentHTML('beforeend', row);
                 });
+
                 document.querySelectorAll('.attendance-toggle').forEach(toggle => {
-                    toggle.addEventListener('change', handleAttendanceToggle);
+                    toggle.addEventListener('change', async (event) => {
+                        const studentId = event.target.dataset.studentId;
+                        const isPresent = event.target.checked;
+                        try {
+                            const response = await fetch('/api/update_daily_attendance', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    date: attendanceDate,
+                                    student_id: studentId,
+                                    is_present: isPresent,
+                                }),
+                            });
+                            const result = await response.json();
+                            showStatusMessage(result.message, result.success ? 'success' : 'error');
+                        } catch {
+                            showStatusMessage('Network error. Could not update.', 'error');
+                            event.target.checked = !isPresent; // Revert toggle on failure
+                        }
+                    });
                 });
             } else {
-                tbody.innerHTML = `<tr><td colspan="3">${data.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="3" class="error">${data.message}</td></tr>`;
             }
         });
 }
 
-async function handleAttendanceToggle() {
-    const studentId = this.dataset.studentId;
-    const isPresent = this.checked;
-    const date = document.getElementById('attendance-table').dataset.attendanceDate;
 
+// =============================================================================
+// === UTILITY & HELPER FUNCTIONS ==============================================
+// =============================================================================
+
+/**
+ * A more robust geolocation function with an accuracy check and retry mechanism.
+ * @param {function} successCallback Called with the final position object.
+ * @param {function} errorCallback Called with a final error message string.
+ */
+function getAccurateLocation(successCallback, errorCallback) {
+    showStatusMessage('Getting location...', 'info');
+    
+    // First attempt: Quick with low accuracy goal
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            // If accuracy is good enough, or for controller starting session, succeed immediately
+            if (pos.coords.accuracy < 150) {
+                showStatusMessage('Location found!', 'success');
+                successCallback(pos);
+                return;
+            }
+
+            // Accuracy is poor, start a more patient, high-accuracy watch
+            showStatusMessage('Improving location accuracy...', 'info');
+            const watchId = navigator.geolocation.watchPosition(
+                (highAccPos) => {
+                    // We got a better position, clear the watch and succeed
+                    navigator.geolocation.clearWatch(watchId);
+                    showStatusMessage('High-accuracy location found!', 'success');
+                    successCallback(highAccPos);
+                },
+                (err) => {
+                    // The watch itself failed, clear it and report error
+                    navigator.geolocation.clearWatch(watchId);
+                    errorCallback('Could not get an accurate location. Error: ' + err.message);
+                },
+                { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 } // 20-second timeout for the watch
+            );
+        },
+        (err) => {
+             // The initial, quick attempt failed entirely
+            errorCallback('Could not get location. Error: ' + err.message);
+        },
+        { enableHighAccuracy: false, timeout: 5000 } // 5-second timeout for the quick attempt
+    );
+}
+
+/**
+ * Fetches the list of present students and updates the UI.
+ * @param {number} sessionId The ID of the active session.
+ * @param {HTMLElement} listElement The <ul> element to populate.
+ */
+async function fetchPresentStudents(sessionId, listElement) {
+    if (!listElement) return;
     try {
-        const response = await fetch('/api/update_daily_attendance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ date, student_id: studentId, is_present: isPresent }),
-        });
-        const result = await response.json();
-        // Use a shorter duration for the status message for a snappier feel
-        showStatusMessage(result.message, result.success ? 'success' : 'error', 3000);
+        const response = await fetch(`/api/get_present_students/${sessionId}`);
+        const data = await response.json();
+        if (data.success && data.students) {
+            listElement.innerHTML = data.students.map(s => `<li>${s.name} (${s.enrollment_no})</li>`).join('');
+        }
     } catch (error) {
-        showStatusMessage('Network error updating attendance.', 'error');
-        this.checked = !this.checked; // Revert the toggle on error
+        console.error("Could not fetch present students:", error);
     }
+}
+
+/**
+ * Fetches a student's name based on their enrollment number for verification.
+ */
+async function fetchStudentName() {
+    const enrollmentInput = document.getElementById('enrollment_no');
+    const studentNameDisplay = document.getElementById('student-name-display');
+    const enrollmentNo = enrollmentInput.value.trim();
+    if (enrollmentNo.length >= 5) {
+        try {
+            const response = await fetch(`/api/get_student_name/${enrollmentNo}`);
+            const data = await response.json();
+            studentNameDisplay.textContent = data.name ? `Name: ${data.name}` : 'Student not found.';
+            studentNameDisplay.style.color = data.name ? '#0056b3' : '#dc3545';
+        } catch {
+            studentNameDisplay.textContent = 'Error fetching name.';
+        }
+    } else {
+        studentNameDisplay.textContent = '';
+    }
+}
+
+/**
+ * A non-drifting timer that calculates remaining time from a fixed endpoint.
+ * @param {string} endTimeIsoString The ISO 8601 formatted end time.
+ * @param {HTMLElement} timerElement The element to display the countdown in.
+ */
+function startRobustTimer(endTimeIsoString, timerElement) {
+    if (!endTimeIsoString || !timerElement) return;
+    const endTime = new Date(endTimeIsoString).getTime();
+
+    const timerInterval = setInterval(() => {
+        const now = new Date().getTime();
+        const remaining = endTime - now;
+
+        if (remaining <= 0) {
+            clearInterval(timerInterval);
+            timerElement.textContent = "Session Ended";
+            // Disable form if on student page
+            const markBtn = document.getElementById('mark-btn');
+            if (markBtn) {
+                 markBtn.disabled = true;
+                 markBtn.closest('form').style.display = 'none';
+            }
+            return;
+        }
+
+        const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+        timerElement.textContent = `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+    }, 1000);
+}
+
+function showTroubleshootingTips(show) {
+    const tipsElement = document.getElementById('troubleshooting-tips');
+    if (tipsElement) {
+        tipsElement.style.display = show ? 'block' : 'none';
+    }
+}
+
+function debounce(func, delay) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), delay);
+    };
 }
 
