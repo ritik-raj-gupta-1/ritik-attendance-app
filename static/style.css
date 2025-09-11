@@ -112,8 +112,11 @@ body {
 .report-table-container { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
 .data-table th, .data-table td { border: 1px solid var(--border-color); padding: 12px 15px; text-align: left; }
-.data-table th { background-color: rgba(128, 128, 128, 0.1); font-weight: 600; font-size: 0.9em; text-transform: uppercase; text-align: center; }
+/* FIX: Changed header background for better contrast and made text color explicit. */
+.data-table th { background-color: #2a2a2a; color: var(--text-color); font-weight: 600; font-size: 0.9em; text-transform: uppercase; text-align: center; }
 .data-table th:first-child, .data-table td:first-child { text-align: left; position: sticky; left: 0; background-color: #2a2a2a; z-index: 1; }
+/* FIX: Added rule for <small> tag to ensure enrollment no. is visible. */
+.data-table th small { color: var(--text-muted); }
 .status-present { color: var(--success-text); font-weight: bold; }
 .status-absent { color: var(--danger-red); }
 .edit-day-btn { background-color: var(--primary-blue); color: white; text-decoration: none; display: inline-block; padding: 5px 10px; border-radius: 5px; font-size: 0.9em; }
@@ -163,5 +166,27 @@ input:checked + .slider:before { transform: translateX(26px); }
     .signature-footer { flex-direction: column; gap: 15px; margin: 20px -20px -20px -20px; padding: 15px 20px; }
     .button.logout-button { position: static; display: block; margin: 15px auto 0; }
     .modal-content { width: 95%; margin: 25% auto; }
+}
+
+/* --- 12. Custom Scrollbar (FIX for Manual Edit Modal) --- */
+/* For WebKit Browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+    width: 10px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
+}
+::-webkit-scrollbar-thumb {
+    background: var(--secondary-gray);
+    border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-gray-dark);
+}
+/* For Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--secondary-gray) rgba(0, 0, 0, 0.2);
 }
 
