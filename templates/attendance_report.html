@@ -3,22 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance Report</title>
+    <title>Attendance Report - {{ class_name }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        .report-table-container { overflow-x: auto; margin-top: 20px; }
-        .data-table th, .data-table td { text-align: center; white-space: nowrap; }
-        .data-table th:first-child, .data-table td:first-child { text-align: left; }
-        .status-present { color: green; font-weight: bold; }
-        .status-absent { color: red; font-weight: bold; }
-        .edit-day-btn { background-color: #007bff; color: white; text-decoration: none; display: inline-block; padding: 5px 10px; border-radius: 5px; font-size: 0.9em; }
+        .report-table-container { 
+            overflow-x: auto; 
+            margin-top: 20px; 
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .data-table th, .data-table td { 
+            text-align: center; 
+            white-space: nowrap; 
+            padding: 10px 12px;
+        }
+        .data-table th:first-child, .data-table td:first-child { 
+            text-align: left; 
+            position: sticky;
+            left: 0;
+            background-color: #f8f9fa; /* Light grey to distinguish from other cells */
+            z-index: 1;
+        }
+        .data-table th {
+             background-color: #f2f2f2;
+        }
+        .status-present { color: #28a745; font-weight: bold; }
+        .status-absent { color: #dc3545; font-weight: bold; }
+        .edit-day-btn { 
+            background-color: #007bff; 
+            color: white; 
+            text-decoration: none; 
+            display: inline-block; 
+            padding: 5px 10px; 
+            border-radius: 5px; 
+            font-size: 0.9em; 
+        }
         .edit-day-btn:hover { background-color: #0056b3; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>Daily Attendance Report ({{ class_name }})</h2>
+            <h2>Daily Attendance Report</h2>
+            <p>{{ class_name }}</p>
             <a href="{{ url_for('controller_dashboard') }}" class="back-link button">Back to Dashboard</a>
         </div>
         
@@ -38,24 +65,34 @@
                 <table class="data-table">
                     <thead>
                         <tr>
+                            <!-- Header for the Date column -->
                             <th style="text-align:left;">Date</th>
+                            
+                            <!-- Dynamically create a header for each student -->
                             {% for student in students %}
-                            <th>{{ student.name }}<br>({{ student.enrollment_no }})</th>
+                            <th>{{ student.name }}<br><small>({{ student.enrollment_no }})</small></th>
                             {% endfor %}
+
+                            <!-- Header for the Actions column -->
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
+                        <!-- Loop through each day in the report -->
                         {% for daily_entry in report_data %}
-                        {% set entry_date = daily_entry.date | to_datetime %}
-                        {% set is_editable = (now.date() - entry_date.date()).days < 7 %}
                         <tr>
+                            <!-- Display the date for this row -->
                             <td style="font-weight:bold; text-align:left;">{{ daily_entry.date }}</td>
+                            
+                            <!-- Loop through each student's status for that day -->
                             {% for student_status in daily_entry.students %}
                             <td class="status-{{ student_status.status | lower }}">{{ student_status.status }}</td>
                             {% endfor %}
+
+                            <!-- Actions cell with the conditional Edit button -->
                             <td>
-                                {% if is_editable %}
+                                <!-- THE FIX IS HERE: This now uses the simple boolean from Python -->
+                                {% if daily_entry.is_editable %}
                                 <a href="{{ url_for('edit_attendance', date_str=daily_entry.date) }}" class="edit-day-btn">Edit</a>
                                 {% endif %}
                             </td>
@@ -66,12 +103,11 @@
             </div>
             {% else %}
             <div class="info-message">
-                No attendance data available yet. Start a session to begin recording.
+                No attendance data is available yet. Start a session to begin recording attendance.
             </div>
             {% endif %}
         </div>
     </div>
-    <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>
 
