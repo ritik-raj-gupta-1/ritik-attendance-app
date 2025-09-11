@@ -3,42 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Controller Dashboard</title>
+    <title>Mark {{ class_name }} Attendance</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .live-attendance-section h3, .final-attendance-list h3 { font-size: 1.2em; color: #333; }
+        .troubleshooting-card { background-color: #fff3cd; color: #856404; padding: 15px; margin-top: 20px; border-radius: 8px; border: 1px solid #ffeeba; display: none; }
+        .troubleshooting-card h4 { margin-top: 0; }
+        .troubleshooting-card ul { padding-left: 20px; }
+    </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>{{ class_name }} Controller Dashboard</h2>
-            <p>Welcome, {{ CONTROLLER_DISPLAY_NAME }}!</p>
-            <a href="{{ url_for('logout') }}" class="button logout-button">Logout</a>
+            <h2>Mark {{ class_name }} Attendance</h2>
+            <p>Enter your enrollment number for the active session.</p>
         </div>
-        
+
         <div id="status-message" class="status-message" style="display: none;"></div>
 
         <div class="dashboard-content">
-            <div class="section-card">
-                <h3>Attendance Session Control</h3>
-                {% if active_session %}
-                    <p>Time Remaining: <span id="timer-{{ active_session.id }}" style="font-weight: bold;"></span></p>
-                    <button type="button" class="button end-session-btn" data-session-id="{{ active_session.id }}" style="background-color: #dc3545;">End Session Now</button>
-                {% else %}
-                    <p>There is no active session.</p>
-                    <button type="button" id="start-session-btn" class="button">Start New 5-Minute Session</button>
-                {% endif %}
-            </div>
+            {% if active_session %}
+                <!-- State 1: Session is currently active -->
+                <div class="section-card">
+                    <h3>Active Session</h3>
+                    <p>Time Remaining: <strong id="timer-student" style="font-size: 1.2em;"></strong></p>
+                    <form id="attendance-form" class="attendance-form">
+                        <div class="form-group">
+                            <label for="enrollment_no">Enrollment Number:</label>
+                            <input type="text" id="enrollment_no" name="enrollment_no" required placeholder="e.g., Y24120123" autocomplete="off" style="text-transform: uppercase;">
+                            <div id="student-name-display" class="student-name-display"></div>
+                        </div>
+                        <button type="submit" id="mark-btn" class="button">Mark My Attendance</button>
+                    </form>
+                </div>
 
-            <div class="section-card">
-                <h3>Attendance Reports & Management</h3>
-                <p>View comprehensive attendance records and manage daily data.</p>
-                <a href="{{ url_for('attendance_report') }}" class="button">View Daily Report</a>
-                <a href="{{ url_for('edit_attendance_days') }}" class="button">Edit Past Attendance</a>
-            </div>
+                <div id="troubleshooting-tips" class="troubleshooting-card">
+                    <h4>Location Accuracy Tips</h4>
+                    <p>If the system shows you are too far away but you're in class, please try the following:</p>
+                    <ul>
+                        <li>Move closer to a window for a better GPS signal.</li>
+                        <li>Toggle your phone's Location/GPS service off and on again.</li>
+                        <li>Ensure you are using your browser's "High Accuracy" location setting.</li>
+                        <li>As a last resort, restarting your phone can help.</li>
+                    </ul>
+                </div>
+                
+                <div class="live-attendance-section">
+                    <h3>Students Present Today ({{ todays_date }})</h3>
+                    <ul id="present-students-list">
+                        <li>Loading...</li>
+                    </ul>
+                </div>
+
+            {% elif present_students %}
+                <!-- State 2: Session is over, show final list for the day -->
+                 <div class="final-attendance-list section-card">
+                    <h3>Attendance Recorded for Today ({{ todays_date }})</h3>
+                    <p>The following students were marked present today.</p>
+                    <ul>
+                        {% for student in present_students %}
+                            <li>{{ student.name }} ({{ student.enrollment_no }})</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% else %}
+                 <!-- State 3: No session active and none have run today -->
+                <div class="info-message">
+                    There is no active attendance session right now.
+                </div>
+            {% endif %}
         </div>
     </div>
     <script>
-        window.activeSessionData = {{ active_session | tojson | safe }};
+        window.activeSessionDataStudent = {{ active_session | tojson | safe }};
     </script>
     <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>
+
