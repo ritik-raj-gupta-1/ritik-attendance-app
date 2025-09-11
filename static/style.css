@@ -303,7 +303,37 @@ input:checked + .slider:before { transform: translateX(26px); }
 .slider.round:before { border-radius: 50%; }
 .data-table td:last-child { text-align: center; }
 
-/* --- 9. Responsive Design --- */
+/* --- 9. ENHANCED Branding Footer --- */
+.branding-footer {
+    text-align: center;
+    margin: 40px auto 20px;
+    padding: 20px;
+    max-width: 300px;
+    background-color: #ffffff;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    border-top: 3px solid var(--primary-blue);
+}
+.branding-footer .footer-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text-color);
+}
+.branding-footer .footer-logo {
+    color: var(--primary-blue);
+}
+.branding-footer p {
+    margin: 0;
+    font-size: 0.95em;
+    font-weight: 500;
+}
+.branding-footer strong {
+    font-weight: 700;
+}
+
+/* --- 10. Responsive Design --- */
 @media (max-width: 768px) {
     body { padding: 10px; }
     .container { padding: 20px; }

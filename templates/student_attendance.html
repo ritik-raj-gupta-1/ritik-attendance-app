@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mark {{ class_name }} Attendance(by Ritik)</title>
+    <title>Mark {{ class_name }} Attendance</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         .live-attendance-section h3, .final-attendance-list h3 { font-size: 1.2em; color: #333; }
@@ -74,6 +74,19 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- Enhanced and Stylized Footer -->
+    <footer class="branding-footer">
+        <div class="footer-content">
+            <svg class="footer-logo" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <p>Designed & Developed by <strong>Ritik</strong></p>
+        </div>
+    </footer>
+
     <script>
         window.activeSessionDataStudent = {{ active_session | tojson | safe }};
     </script>
