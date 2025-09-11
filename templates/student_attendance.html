@@ -3,35 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mark BA Attendance (by Ritik)</title>
+    <title>Mark BA Attendance</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Scoped styles for this page for better maintainability */
+        #student-name-display {
+            font-weight: bold;
+            margin-top: 8px;
+            height: 1.2em; /* Prevents layout shift when name appears */
+            transition: color 0.3s;
+        }
+        #present-students-list ul {
+            column-count: 2;
+            list-style-type: none;
+            padding-left: 0;
+            font-size: 0.9em;
+        }
+        /* Make the list single-column on smaller screens */
+        @media (max-width: 600px) {
+            #present-students-list ul {
+                column-count: 1;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>Mark BA Attendance</h2>
-            <p>Enter your enrollment number to mark attendance for the active {{ class_name }} session.</p>
+            <h2>Mark {{ class_name }} Attendance</h2>
+            <p>Enter your enrollment number for the active session.</p>
         </div>
 
         <div id="status-message" class="status-message" style="display: none;"></div>
 
         <div class="dashboard-content">
-            
             {% if active_session %}
                 <!-- State 1: Session is currently active -->
                 <div class="session-info">
-                    <p>Active Session for: <strong>{{ class_name }}</strong></p>
-                    <p>Time Remaining: <span id="timer-student" style="font-weight: bold;">{{ active_session.remaining_time }}s</span></p>
+                    <p>Time Remaining: <span id="timer-student" style="font-weight: bold;"></span></p>
                 </div>
 
                 <form id="attendance-form" class="attendance-form">
                     <div class="form-group">
                         <label for="enrollment_no">Enrollment Number:</label>
-                        <input type="text" id="enrollment_no" name="enrollment_no" required placeholder="e.g., Y24120123" style="text-transform: uppercase;">
-                        <div id="student-name-display" class="student-name-display"></div>
+                        <input type="text" id="enrollment_no" name="enrollment_no" required placeholder="e.g., Y24120123" autocomplete="off" style="text-transform: uppercase;">
+                        <!-- This div will be populated by main.js for name verification -->
+                        <div id="student-name-display"></div>
                     </div>
-                    <button type="submit" id="mark-btn" class="button">Mark Attendance</button>
+                    <button type="submit" id="mark-btn" class="button">Mark My Attendance</button>
                 </form>
+
+                <!-- This section will be populated by main.js for the live list -->
+                <div id="present-students-list" class="section-card" style="margin-top: 25px;">
+                    <h4 style="display: none;">Students Present Today ({{ todays_date }})</h4>
+                    <ul><!-- Live list will be populated here --></ul>
+                </div>
 
             {% else %}
                 <!-- State 2: No active session -->
@@ -39,10 +65,10 @@
                     There is no active attendance session right now. Please check back later.
                 </div>
             {% endif %}
-            
         </div>
     </div>
     <script>
+        // Securely pass data from the Flask backend to the frontend JavaScript
         window.activeSessionDataStudent = {{ active_session | tojson | safe }};
     </script>
     <script src="{{ url_for('static', filename='main.js') }}"></script>
