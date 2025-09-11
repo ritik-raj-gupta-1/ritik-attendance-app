@@ -5,23 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mark {{ class_name }} Attendance</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-        .live-attendance-section h3, .final-attendance-list h3 { font-size: 1.2em; }
-        .troubleshooting-card { background-color: #fff3cd; color: #856404; padding: 15px; margin-top: 20px; border-radius: 8px; border: 1px solid #ffeeba; display: none; }
-        .troubleshooting-card h4 { margin-top: 0; }
-        .troubleshooting-card ul { padding-left: 20px; }
-    </style>
 </head>
 <body>
+    <div class="ivc-background"></div>
     <div class="container">
         <div class="header">
-            <!-- NEW Theme Toggle Switch -->
-            <div class="theme-switch-wrapper">
-                <label class="theme-switch" for="checkbox">
-                    <input type="checkbox" id="checkbox" />
-                    <div class="slider round"></div>
-                </label>
-            </div>
             <h2>Mark {{ class_name }} Attendance</h2>
             <p>Enter your enrollment number for the active session.</p>
         </div>
@@ -80,19 +68,19 @@
                 </div>
             {% endif %}
         </div>
-         <!-- Aesthetic Signature Footer with new Games button -->
+        
+        <!-- Signature Footer -->
         <footer class="signature-footer">
             <div class="footer-left">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-code"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-                <span>Designed & Crafted by <strong>Ritik</strong></span>
+                <span>Crafted by <strong>Ritik</strong></span>
             </div>
             <a href="https://utdgames.carrd.co/" target="_blank" class="button game-button">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-gamepad"><line x1="6" y1="11" x2="10" y2="11"></line><line x1="8" y1="9" x2="8" y2="13"></line><line x1="15" y1="12" x2="15.01" y2="12"></line><line x1="18" y1="10" x2="18.01" y2="10"></line><path d="M17.32 5H6.68a4 4 0 0 0-3.97 3.59c-.2 1.44-.06 3.2.35 4.83a4 4 0 0 0 3.62 3.58h10.64a4 4 0 0 0 3.62-3.58c.4-1.63.55-3.39.35-4.83A4 4 0 0 0 17.32 5z"></path></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-play"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                 My Games
             </a>
         </footer>
     </div>
-
     <script>
         window.activeSessionDataStudent = {{ active_session | tojson | safe }};
     </script>

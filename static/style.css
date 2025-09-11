@@ -1,35 +1,8 @@
 /* --- MODERN MINIMALIST AESTHETIC --- */
 /* Designed for clarity, professionalism, and a great user experience on all devices. */
 
-/* --- 1. THEME VARIABLES (LIGHT & DARK) --- */
+/* --- 1. THEME VARIABLES (PERMANENT DARK THEME) --- */
 :root {
-    /* Light Theme (Default) */
-    --primary-blue: #007bff;
-    --secondary-blue: #00c6ff;
-    --primary-blue-dark: #0056b3;
-    --background-color: #f8f9fa;
-    --container-bg: rgba(255, 255, 255, 0.95);
-    --text-color: #212529;
-    --text-muted: #6c757d;
-    --border-color: #dee2e6;
-    --box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    --border-radius: 12px;
-    --success-bg: #d4edda;
-    --success-text: #155724;
-    --error-bg: #f8d7da;
-    --error-text: #721c24;
-    --info-bg: #d1ecf1;
-    --info-text: #0c5460;
-    --warning-bg: #fff3cd;
-    --warning-text: #856404;
-    --danger-red: #dc3545;
-    --danger-red-dark: #c82333;
-    --secondary-gray: #6c757d;
-    --secondary-gray-dark: #5a6268;
-}
-
-.dark-theme {
-    /* Dark Theme */
     --primary-blue: #1e90ff;
     --secondary-blue: #00bfff;
     --primary-blue-dark: #1c86ee;
@@ -39,8 +12,10 @@
     --text-muted: #a0a0a0;
     --border-color: #333;
     --box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    --border-radius: 12px;
     --success-bg: #2a3b2f;
     --success-text: #7ee29a;
+    --success-green-toggle: #4caf50;
     --error-bg: #4d2a2d;
     --error-text: #f19da4;
     --info-bg: #223a40;
@@ -53,7 +28,7 @@
     --secondary-gray-dark: #616161;
 }
 
-/* --- 2. Global Styles & Typography --- */
+/* --- 2. Global Styles & Themed Background --- */
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     margin: 0;
@@ -61,64 +36,105 @@ body {
     background-color: var(--background-color);
     color: var(--text-color);
     line-height: 1.6;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    position: relative;
+}
+
+.ivc-background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('https://www.transparenttextures.com/patterns/gplay.png');
+    background-repeat: repeat;
+    opacity: 0.1;
+    z-index: -1;
 }
 
 .container {
     max-width: 800px;
-    margin: 0 auto;
+    margin: 40px auto;
     padding: 30px;
     border-radius: var(--border-radius);
     box-shadow: var(--box-shadow);
     background-color: var(--container-bg);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: background-color 0.3s ease;
+    border: 1px solid var(--border-color);
 }
 
-/* --- 3. Header & THEME TOGGLE --- */
+/* --- 3. Header & Core Layout --- */
 .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); position: relative; }
-.header h2 { margin-bottom: 5px; font-size: 1.8em; font-weight: 600; }
+.header h2 { margin-bottom: 5px; font-size: 1.8em; font-weight: 600; color: var(--primary-blue); }
 .header p { color: var(--text-muted); font-size: 1.1em; margin-top: 5px; }
-.theme-switch-wrapper { position: absolute; top: -15px; right: 0; }
-.theme-switch { display: inline-block; height: 34px; position: relative; width: 60px; }
-.theme-switch input { display: none; }
-.theme-switch .slider { background-color: #ccc; bottom: 0; cursor: pointer; left: 0; position: absolute; right: 0; top: 0; transition: .4s; }
-.theme-switch .slider:before { background-color: #fff; bottom: 4px; content: ""; height: 26px; left: 4px; position: absolute; transition: .4s; width: 26px; }
-input:checked + .slider { background-color: var(--primary-blue); }
+.section-card { background-color: transparent; padding: 25px 0; margin-bottom: 25px; border: none; }
+.section-card h3 { color: var(--primary-blue); margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+
+/* --- 4. Forms & Inputs --- */
+.form-group { margin-bottom: 20px; }
+.form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-color); }
+.form-group input[type="text"], .form-group input[type="password"] { width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--border-radius); font-size: 1em; box-sizing: border-box; background-color: rgba(128, 128, 128, 0.1); color: var(--text-color); }
+.form-group input:focus { outline: none; border-color: var(--primary-blue); box-shadow: 0 0 0 3px rgba(30, 144, 255, 0.25); }
+.student-name-display { margin-top: 10px; font-weight: bold; height: 20px; transition: color 0.3s; }
+
+/* --- 5. Buttons & Links --- */
+.button { display: inline-block; padding: 12px 24px; margin: 5px; font-weight: 600; color: #fff; background-color: var(--primary-blue); border: none; border-radius: var(--border-radius); cursor: pointer; text-decoration: none; transition: background-color 0.2s ease, transform 0.1s ease; text-align: center; }
+.button:hover { background-color: var(--primary-blue-dark); }
+.button:active { transform: scale(0.98); }
+.button:disabled { background-color: #3a5a78; cursor: not-allowed; }
+.button.logout-button { background-color: var(--secondary-gray); position: absolute; top: -10px; right: 0; padding: 8px 15px; font-size: 0.9em; }
+.button.logout-button:hover { background-color: var(--secondary-gray-dark); }
+.button.end-session-btn { background-color: var(--danger-red); }
+.button.end-session-btn:hover { background-color: var(--danger-red-dark); }
+.back-link, .day-selection-list a { background-color: var(--secondary-gray); text-decoration: none; }
+.back-link:hover, .day-selection-list a:hover { background-color: var(--secondary-gray-dark); }
+.day-selection-list { list-style: none; padding: 0; }
+.day-selection-list li { margin-bottom: 10px; }
+
+/* --- 6. Status, Info & Flashed Messages --- */
+.status-message, .info-message, .flashes li { margin: 20px 0; padding: 15px; border-radius: var(--border-radius); font-weight: 600; text-align: center; }
+.status-message { display: none; }
+.flashes { list-style-type: none; padding: 0; }
+.status-message.info, .info-message, .flashes .info { background-color: var(--info-bg); color: var(--info-text); }
+.status-message.success, .flashes .success { background-color: var(--success-bg); color: var(--success-text); }
+.status-message.warning, .flashes .warning { background-color: var(--warning-bg); color: var(--warning-text); }
+.status-message.error, .error, .flashes .danger, .flashes .error { background-color: var(--error-bg); color: var(--error-text); }
+.troubleshooting-card { background-color: var(--warning-bg); color: var(--warning-text); padding: 15px; margin-top: 20px; border-radius: var(--border-radius); border: 1px solid var(--warning-text); display: none; }
+.troubleshooting-card h4 { margin-top: 0; }
+.troubleshooting-card ul { padding-left: 20px; }
+
+/* --- 7. Lists (Live & Final Attendance) --- */
+.live-attendance-section, .final-attendance-list { margin-top: 30px; padding: 20px; background-color: rgba(128, 128, 128, 0.1); border-radius: var(--border-radius); }
+.live-attendance-section ul, .final-attendance-list ul { list-style-type: none; padding-left: 0; column-count: 2; }
+.live-attendance-section ul li, .final-attendance-list ul li { padding: 8px 12px; margin-bottom: 8px; font-size: 0.95em; }
+
+/* --- 8. Data Tables & Toggles --- */
+.report-table-container { overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+.data-table th, .data-table td { border: 1px solid var(--border-color); padding: 12px 15px; text-align: left; }
+.data-table th { background-color: rgba(128, 128, 128, 0.1); font-weight: 600; font-size: 0.9em; text-transform: uppercase; text-align: center; }
+.data-table th:first-child, .data-table td:first-child { text-align: left; position: sticky; left: 0; background-color: #2a2a2a; z-index: 1; }
+.status-present { color: var(--success-text); font-weight: bold; }
+.status-absent { color: var(--danger-red); }
+.edit-day-btn { background-color: var(--primary-blue); color: white; text-decoration: none; display: inline-block; padding: 5px 10px; border-radius: 5px; font-size: 0.9em; }
+.edit-day-btn:hover { background-color: var(--primary-blue-dark); }
+.delete-day-btn { background-color: var(--danger-red); }
+.delete-day-btn:hover { background-color: var(--danger-red-dark); }
+.switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--secondary-gray); transition: .4s; }
+.slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+input:checked + .slider { background-color: var(--success-green-toggle); }
 input:checked + .slider:before { transform: translateX(26px); }
 .slider.round { border-radius: 34px; }
 .slider.round:before { border-radius: 50%; }
+.data-table td:last-child { text-align: center; }
 
-/* --- 4. Forms, Buttons, & Other Elements (with theme support) --- */
-.section-card { background-color: transparent; padding: 25px 0; margin-bottom: 25px; border: none; }
-.section-card h3 { color: var(--primary-blue); margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
-.button { padding: 12px 24px; margin: 5px; font-weight: 600; color: white; background-color: var(--primary-blue); border: none; border-radius: var(--border-radius); cursor: pointer; text-decoration: none; transition: background-color 0.2s ease, transform 0.1s ease; }
-.button:hover { background-color: var(--primary-blue-dark); }
-.button:active { transform: scale(0.98); }
-.form-group input[type="text"], .form-group input[type="password"] { width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--border-radius); font-size: 1em; box-sizing: border-box; background-color: rgba(128, 128, 128, 0.1); color: var(--text-color); }
-.live-attendance-section, .final-attendance-list { margin-top: 30px; padding: 20px; background-color: rgba(128, 128, 128, 0.1); border-radius: var(--border-radius); }
-.live-attendance-section ul, .final-attendance-list ul { list-style-type: none; padding-left: 0; column-count: 2; }
-
-/* --- 5. AESTHETIC SIGNATURE FOOTER --- */
-.signature-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-top: 20px; margin-top: 20px; border-top: 1px solid var(--border-color); background: url('https://www.transparenttextures.com/patterns/arabesque.png'); background-size: cover; background-position: center; border-radius: 0 0 var(--border-radius) var(--border-radius); margin: 20px -30px -30px -30px; padding: 20px 30px; }
-.footer-left { display: flex; align-items: center; gap: 12px; color: var(--text-muted); font-size: 1em; }
-.footer-left .feather { width: 20px; height: 20px; stroke: var(--primary-blue); }
-.footer-left strong { color: var(--text-color); font-weight: 600; }
-.game-button { background: transparent; border: 2px solid var(--primary-blue); color: var(--primary-blue); padding: 8px 16px; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
-.game-button .feather { width: 16px; height: 16px; stroke: var(--primary-blue); transition: stroke 0.2s ease; }
-.game-button:hover { background: var(--primary-blue); color: white; }
-.game-button:hover .feather { stroke: white; }
-.dark-theme .game-button:hover { color: var(--container-bg); }
-.dark-theme .game-button:hover .feather { stroke: var(--container-bg); }
-
-/* --- 6. MODAL & COMPONENT STYLES (NOW COMPLETE) --- */
-.modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(5px); }
+/* --- 9. Modal Styles --- */
+.modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(5px); }
 .modal-content { background-color: var(--container-bg); margin: 15% auto; padding: 25px; border: 1px solid var(--border-color); width: 80%; max-width: 500px; border-radius: var(--border-radius); box-shadow: var(--box-shadow); position: relative; }
 .close-button { position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; color: var(--text-muted); cursor: pointer; transition: color 0.2s ease; }
 .close-button:hover { color: var(--text-color); }
-
 .manual-student-list { max-height: 40vh; overflow-y: auto; margin-top: 15px; padding-right: 10px; }
 .manual-student-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); }
 .manual-student-item:last-child { border-bottom: none; }
@@ -129,22 +145,23 @@ input:checked + .slider:before { transform: translateX(26px); }
 .button-secondary:hover { background-color: var(--secondary-gray-dark); }
 .modal-actions { margin-top: 25px; text-align: right; display: flex; justify-content: flex-end; gap: 10px; }
 
-.data-table th, .data-table td { border: 1px solid var(--border-color); padding: 12px 15px; text-align: left; }
-.data-table th { background-color: transparent; font-weight: 600; font-size: 0.9em; text-transform: uppercase; }
+/* --- 10. AESTHETIC SIGNATURE FOOTER --- */
+.signature-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-top: 20px; margin-top: 20px; border-top: 1px solid var(--border-color); background-image: url('https://www.transparenttextures.com/patterns/arabesque.png'); background-size: auto; background-position: center; border-radius: 0 0 var(--border-radius) var(--border-radius); margin: 20px -30px -30px -30px; padding: 20px 30px; }
+.footer-left { display: flex; align-items: center; gap: 12px; color: var(--text-muted); font-size: 1em; }
+.footer-left .feather { width: 20px; height: 20px; stroke: var(--primary-blue); }
+.footer-left strong { color: var(--text-color); font-weight: 600; }
+.game-button { background: transparent; border: 2px solid var(--primary-blue); color: var(--primary-blue); padding: 8px 16px; font-size: 0.9em; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; border-radius: var(--border-radius); }
+.game-button .feather { width: 16px; height: 16px; stroke: var(--primary-blue); transition: stroke 0.2s ease; }
+.game-button:hover { background: var(--primary-blue); color: var(--background-color); }
+.game-button:hover .feather { stroke: var(--background-color); }
 
-.status-message { margin: 20px 0; padding: 15px; border-radius: var(--border-radius); font-weight: 600; text-align: center; display: none; }
-.status-message.info { background-color: var(--info-bg); color: var(--info-text); }
-.status-message.success { background-color: var(--success-bg); color: var(--success-text); }
-.status-message.warning { background-color: var(--warning-bg); color: var(--warning-text); }
-.status-message.error, .error { background-color: var(--error-bg); color: var(--error-text); }
-.info-message { background-color: var(--info-bg); color: var(--info-text); padding: 15px; border-radius: var(--border-radius); text-align: center; margin-top: 20px; }
-
-/* --- 7. Responsive Design --- */
+/* --- 11. Responsive Design --- */
 @media (max-width: 768px) {
     body { padding: 10px; }
-    .container { padding: 20px; }
+    .container { padding: 20px; margin: 20px auto; }
     .live-attendance-section ul, .final-attendance-list ul { column-count: 1; }
-    .theme-switch-wrapper { top: 5px; right: 5px; }
     .signature-footer { flex-direction: column; gap: 15px; margin: 20px -20px -20px -20px; padding: 15px 20px; }
+    .button.logout-button { position: static; display: block; margin: 15px auto 0; }
+    .modal-content { width: 95%; margin: 25% auto; }
 }
 
