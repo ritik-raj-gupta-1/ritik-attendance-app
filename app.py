@@ -40,13 +40,22 @@ def get_db_connection():
         print(f"FATAL: Database connection failed: {e}")
         return None
 
+# --- THIS IS THE UPGRADED DECORATOR ---
 def controller_required(f):
     """Decorator to protect routes that require controller login."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session or session.get('role') != 'ba_controller':
-            flash("You must be logged in as the B.A. controller to access this page.", "warning")
-            return redirect(url_for('login'))
+            # If it's an API request, return JSON instead of redirect
+            if request.path.startswith("/api/"):
+                return jsonify({
+                    "success": False,
+                    "message": "Unauthorized: Please log in as controller.",
+                    "category": "error"
+                }), 401
+            else:
+                flash("You must be logged in as the B.A. controller to access this page.", "warning")
+                return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -100,7 +109,7 @@ def login():
                 else:
                     flash("Invalid username or password.", "danger")
         finally:
-            conn.close()
+            if conn: conn.close()
     return render_template('login.html', class_name=CLASS_NAME)
 
 @app.route('/logout')
@@ -136,7 +145,7 @@ def student_page():
                         """, (class_id, today_utc))
                         present_students = cur.fetchall()
         finally:
-            conn.close()
+            if conn: conn.close()
             
     return render_template('student_attendance.html', active_session=active_session, present_students=present_students, class_name=CLASS_NAME, todays_date=todays_date)
 
@@ -155,8 +164,8 @@ def controller_dashboard():
                     if session_data:
                         active_session = {'id': session_data['id'], 'end_time': session_data['end_time'].isoformat()}
         finally:
-            conn.close()
-    return render_template('admin_dashboard.html', active_session=active_session, class_name=CLASS_NAME, CONTROLLER_DISPLAY_NAME=CONTROLLER_DISPLAY_NAME)
+            if conn: conn.close()
+    return render_template('admin_dashboard.html', active_session=active_session, class_name=CLASS_NAME, username=session.get('username'))
 
 # --- FULLY IMPLEMENTED REPORT AND EDIT ROUTES ---
 
@@ -194,7 +203,7 @@ def attendance_report():
                 daily_entry['students'] = student_statuses
                 report_data.append(daily_entry)
     finally:
-        conn.close()
+        if conn: conn.close()
 
     return render_template('attendance_report.html', report_data=report_data, students=students, class_name=CLASS_NAME)
 
@@ -352,7 +361,7 @@ def api_start_session():
             if cur.fetchone():
                 return jsonify({"success": False, "message": "An active session already exists."}), 409
 
-            session_token = secrets.token_hex(16) # Generate the missing token
+            session_token = secrets.token_hex(16)
             cur.execute(
                 """
                 INSERT INTO attendance_sessions 
@@ -397,7 +406,7 @@ def api_get_student_name(enrollment_no):
             if result: return jsonify({"success": True, "name": result[0]})
             else: return jsonify({"success": False, "name": "Not Found"})
     finally:
-        conn.close()
+        if conn: conn.close()
 
 @app.route('/api/get_present_students/<int:session_id>')
 def api_get_present_students(session_id):
@@ -437,6 +446,60 @@ def api_get_students_for_edit(date_str):
             return jsonify({"success": True, "students": student_data})
     finally:
         if conn: conn.close()
+
+@app.route('/api/get_all_students')
+@controller_required
+def api_get_all_students():
+    conn = get_db_connection()
+    if not conn: return jsonify({"success": False, "message": "Database failed."}), 500
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT id, enrollment_no, name FROM students WHERE batch = %s ORDER BY enrollment_no", (BATCH_CODE,))
+            all_students = cur.fetchall()
+            return jsonify({"success": True, "students": all_students})
+    finally:
+        if conn: conn.close()
+
+@app.route('/api/manual_attendance', methods=['POST'])
+@controller_required
+def api_manual_attendance():
+    data = request.get_json()
+    session_id = data.get('session_id')
+    student_ids = data.get('student_ids', [])
+
+    if not session_id or not isinstance(student_ids, list):
+        return jsonify({"success": False, "message": "Invalid data provided."}), 400
+
+    conn = get_db_connection()
+    if not conn: return jsonify({"success": False, "message": "Database connection failed."}), 503
+
+    try:
+        with conn.cursor() as cur:
+            # Verify the session is still active and belongs to the controller
+            cur.execute("SELECT id FROM attendance_sessions WHERE id = %s AND controller_id = %s AND is_active = TRUE AND end_time > NOW()",
+                        (session_id, session['user_id']))
+            if not cur.fetchone():
+                return jsonify({"success": False, "message": "Session is not active or unauthorized."}), 403
+
+            # Use a loop to insert records, ignoring conflicts if a student already marked themselves present
+            records_added = 0
+            for student_id in student_ids:
+                cur.execute("""
+                    INSERT INTO attendance_records (session_id, student_id, timestamp, ip_address, accuracy) 
+                    VALUES (%s, %s, NOW(), 'Manual Edit by Controller', 0) 
+                    ON CONFLICT (session_id, student_id) DO NOTHING
+                """, (session_id, student_id))
+                records_added += cur.rowcount
+            
+            conn.commit()
+            return jsonify({"success": True, "message": f"{records_added} new attendance records marked manually."})
+    except (Exception, psycopg2.Error) as e:
+        if conn: conn.rollback()
+        print(f"ERROR in api_manual_attendance: {e}")
+        return jsonify({"success": False, "message": "An error occurred during manual update."}), 500
+    finally:
+        if conn: conn.close()
+
 
 @app.route('/api/update_daily_attendance', methods=['POST'])
 @controller_required

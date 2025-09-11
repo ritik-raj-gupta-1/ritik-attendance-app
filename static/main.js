@@ -244,6 +244,13 @@ function initControllerPage() {
     const endButton = document.querySelector('.end-session-btn');
     const timerElement = document.getElementById(`timer-${window.activeSessionData?.id}`);
 
+    // Manual Edit Modal Elements
+    const manualEditBtn = document.getElementById('manual-edit-btn');
+    const modal = document.getElementById('manual-edit-modal');
+    const closeBtn = document.querySelector('.close-btn');
+    const submitManualBtn = document.getElementById('submit-manual-attendance');
+    const studentListContainer = document.getElementById('student-list-container');
+
     if (window.activeSessionData?.end_time && timerElement) {
         startRobustTimer(window.activeSessionData.end_time, timerElement);
     }
@@ -252,7 +259,6 @@ function initControllerPage() {
         startButton.addEventListener('click', async () => {
             startButton.disabled = true;
             startButton.textContent = 'Getting Location...';
-            // THIS IS LINE 126 from the error - now it will work
             showStatusMessage('Getting your location to start the session.', 'info');
 
             getAccurateLocation(
@@ -296,6 +302,69 @@ function initControllerPage() {
             const result = await response.json();
             showStatusMessage(result.message, 'info');
             setTimeout(() => window.location.reload(), 1500);
+        });
+    }
+
+    if (manualEditBtn) {
+        manualEditBtn.addEventListener('click', async () => {
+            modal.style.display = 'block';
+            try {
+                const response = await fetch('/api/get_all_students');
+                const data = await response.json();
+                if (data.success) {
+                    studentListContainer.innerHTML = '';
+                    data.students.forEach(student => {
+                        const label = document.createElement('label');
+                        label.className = 'student-checkbox-item';
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.value = student.id;
+                        checkbox.id = `student-${student.id}`;
+                        label.appendChild(checkbox);
+                        label.append(` ${student.name} (${student.enrollment_no})`);
+                        studentListContainer.appendChild(label);
+                    });
+                } else {
+                    studentListContainer.innerHTML = `<p class="error">${data.message}</p>`;
+                }
+            } catch {
+                studentListContainer.innerHTML = `<p class="error">Failed to load students.</p>`;
+            }
+        });
+    }
+
+    if (closeBtn) {
+        closeBtn.onclick = () => { modal.style.display = 'none'; };
+    }
+
+    window.onclick = (event) => {
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    };
+
+    if (submitManualBtn) {
+        submitManualBtn.addEventListener('click', async () => {
+            const selectedStudentIds = Array.from(studentListContainer.querySelectorAll('input:checked')).map(cb => cb.value);
+            const sessionId = manualEditBtn.dataset.sessionId;
+
+            try {
+                const response = await fetch('/api/manual_attendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        student_ids: selectedStudentIds
+                    })
+                });
+                const result = await response.json();
+                showStatusMessage(result.message, result.success ? 'success' : 'error');
+                if (result.success) {
+                    modal.style.display = 'none';
+                }
+            } catch {
+                showStatusMessage('Network error. Could not submit.', 'error');
+            }
         });
     }
 }
@@ -353,4 +422,3 @@ function initEditAttendancePage() {
             }
         });
 }
-

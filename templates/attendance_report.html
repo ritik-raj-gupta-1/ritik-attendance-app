@@ -91,9 +91,9 @@
 
                             <!-- Actions cell with the conditional Edit button -->
                             <td>
-                                <!-- THE FIX IS HERE: This now uses the simple boolean from Python -->
+                                <!-- THE FIX IS HERE: This now uses the correct route name -->
                                 {% if daily_entry.is_editable %}
-                                <a href="{{ url_for('edit_attendance', date_str=daily_entry.date) }}" class="edit-day-btn">Edit</a>
+                                <a href="{{ url_for('edit_attendance_for_day', date_str=daily_entry.date) }}" class="edit-day-btn">Edit</a>
                                 {% endif %}
                             </td>
                         </tr>
