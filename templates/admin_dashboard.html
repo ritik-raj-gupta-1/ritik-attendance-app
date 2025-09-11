@@ -14,16 +14,6 @@
             <a href="{{ url_for('logout') }}" class="button logout-button">Logout</a>
         </div>
         
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <ul class="flashes">
-                    {% for category, message in messages %}
-                        <li class="{{ category }}">{{ message }}</li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
-        {% endwith %}
-
         <div id="status-message" class="status-message" style="display: none;"></div>
 
         <div class="dashboard-content">
@@ -32,8 +22,8 @@
                 {% if active_session %}
                     <p>Active Session (ID: {{ active_session.id }})</p>
                     <p>Time Remaining: <span id="timer-{{ active_session.id }}" style="font-weight: bold;"></span></p>
-                    <button type="button" class="button end-session-btn" data-session-id="{{ active_session.id }}" style="background-color: #dc3545;">End Session Now</button>
-                    <button type="button" id="manual-edit-btn" class="button" data-session-id="{{ active_session.id }}">Manual Edit</button>
+                    <button type="button" class="button end-session-btn" data-session-id="{{ active_session.id }}">End Session Now</button>
+                    <button type="button" id="manual-edit-btn" class="button" data-session-id="{{ active_session.id }}" style="background-color: #17a2b8;">Manual Edit</button>
                 {% else %}
                     <p>No active session for {{ class_name }}.</p>
                     <button type="button" id="start-session-btn" class="button">Start New Session</button>
@@ -49,21 +39,22 @@
     </div>
 
     <!-- Manual Edit Modal -->
-    <div id="manual-edit-modal" class="modal" style="display:none;">
+    <div id="manual-edit-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn">&times;</span>
-            <h3>Manually Mark Attendance</h3>
-            <p>Select students who are present.</p>
+            <h3>Manual Attendance Entry</h3>
+            <p>Select students to mark as present for this session.</p>
             <div id="student-list-container">
-                <!-- Student list will be loaded here -->
-                <p>Loading students...</p>
+                <!-- Student list will be loaded here by JavaScript -->
             </div>
-            <button id="submit-manual-attendance" class="button">Submit</button>
+            <div class="modal-actions">
+                <button id="submit-manual-attendance" class="button">Submit Manual Attendance</button>
+            </div>
         </div>
     </div>
 
     <script>
-        window.activeSessionData = {{ active_session | tojson | default('{}', true) }};
+        window.activeSessionData = {{ active_session | tojson | default('null') }};
     </script>
     <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>

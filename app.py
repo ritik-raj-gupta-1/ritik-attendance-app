@@ -15,7 +15,7 @@ app.secret_key = os.environ.get('SECRET_KEY', os.urandom(32))
 
 # --- Application Configuration ---
 CLASS_NAME = 'B.A. - Anthro'
-BATCH_CODE = 'BA'  # Corrected to match your database_setup.sql file
+BATCH_CODE = 'BA'
 GEOFENCE_RADIUS = 50  # Radius in meters
 
 # --- Controller Credentials (best practice: use environment variables) ---
@@ -356,7 +356,6 @@ def api_start_session():
             class_id = get_class_id_by_name(cur)
             if not class_id: return jsonify({"success": False, "message": f"Class '{CLASS_NAME}' not found."}), 500
             
-            # Check for an existing active session before creating a new one
             cur.execute("SELECT id FROM attendance_sessions WHERE class_id = %s AND is_active = TRUE AND end_time > NOW() LIMIT 1", (class_id,))
             if cur.fetchone():
                 return jsonify({"success": False, "message": "An active session already exists."}), 409
@@ -414,7 +413,6 @@ def api_get_present_students(session_id):
     if not conn: return jsonify({"success": False, "students": []})
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            # Corrected query to return object-like rows
             cur.execute("""
                 SELECT s.name, s.enrollment_no FROM attendance_records ar
                 JOIN students s ON ar.student_id = s.id
@@ -447,60 +445,6 @@ def api_get_students_for_edit(date_str):
     finally:
         if conn: conn.close()
 
-@app.route('/api/get_all_students')
-@controller_required
-def api_get_all_students():
-    conn = get_db_connection()
-    if not conn: return jsonify({"success": False, "message": "Database failed."}), 500
-    try:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT id, enrollment_no, name FROM students WHERE batch = %s ORDER BY enrollment_no", (BATCH_CODE,))
-            all_students = cur.fetchall()
-            return jsonify({"success": True, "students": all_students})
-    finally:
-        if conn: conn.close()
-
-@app.route('/api/manual_attendance', methods=['POST'])
-@controller_required
-def api_manual_attendance():
-    data = request.get_json()
-    session_id = data.get('session_id')
-    student_ids = data.get('student_ids', [])
-
-    if not session_id or not isinstance(student_ids, list):
-        return jsonify({"success": False, "message": "Invalid data provided."}), 400
-
-    conn = get_db_connection()
-    if not conn: return jsonify({"success": False, "message": "Database connection failed."}), 503
-
-    try:
-        with conn.cursor() as cur:
-            # Verify the session is still active and belongs to the controller
-            cur.execute("SELECT id FROM attendance_sessions WHERE id = %s AND controller_id = %s AND is_active = TRUE AND end_time > NOW()",
-                        (session_id, session['user_id']))
-            if not cur.fetchone():
-                return jsonify({"success": False, "message": "Session is not active or unauthorized."}), 403
-
-            # Use a loop to insert records, ignoring conflicts if a student already marked themselves present
-            records_added = 0
-            for student_id in student_ids:
-                cur.execute("""
-                    INSERT INTO attendance_records (session_id, student_id, timestamp, ip_address, accuracy) 
-                    VALUES (%s, %s, NOW(), 'Manual Edit by Controller', 0) 
-                    ON CONFLICT (session_id, student_id) DO NOTHING
-                """, (session_id, student_id))
-                records_added += cur.rowcount
-            
-            conn.commit()
-            return jsonify({"success": True, "message": f"{records_added} new attendance records marked manually."})
-    except (Exception, psycopg2.Error) as e:
-        if conn: conn.rollback()
-        print(f"ERROR in api_manual_attendance: {e}")
-        return jsonify({"success": False, "message": "An error occurred during manual update."}), 500
-    finally:
-        if conn: conn.close()
-
-
 @app.route('/api/update_daily_attendance', methods=['POST'])
 @controller_required
 def api_update_daily_attendance():
@@ -518,15 +462,14 @@ def api_update_daily_attendance():
             session_ids = [row[0] for row in cur.fetchall()]
             
             if not session_ids:
-                if is_present: # Only create a session if trying to mark someone present
-                    # Create a dummy session for the day to hold the record
+                if is_present:
                     session_token = secrets.token_hex(16)
                     start_of_day = datetime.combine(target_date, datetime.min.time(), tzinfo=timezone.utc)
                     cur.execute("INSERT INTO attendance_sessions (class_id, controller_id, session_token, start_time, end_time, is_active) VALUES (%s, %s, %s, %s, %s, FALSE) RETURNING id",
                                 (class_id, session['user_id'], session_token, start_of_day, start_of_day))
                     new_session_id = cur.fetchone()[0]
                     session_ids.append(new_session_id)
-                else: # If trying to mark absent and no session exists, do nothing.
+                else:
                     return jsonify({"success": True, "message": "Student is already absent."})
 
             if is_present:
@@ -542,8 +485,79 @@ def api_update_daily_attendance():
     finally:
         if conn: conn.close()
 
+@app.route('/api/get_students_for_manual_edit/<int:session_id>')
+@controller_required
+def api_get_students_for_manual_edit(session_id):
+    conn = get_db_connection()
+    if not conn: return jsonify({"success": False, "message": "Database failed."}), 500
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT id, enrollment_no, name FROM students WHERE batch = %s ORDER BY enrollment_no", (BATCH_CODE,))
+            all_students = cur.fetchall()
+            cur.execute("SELECT student_id FROM attendance_records WHERE session_id = %s", (session_id,))
+            present_ids = {row['student_id'] for row in cur.fetchall()}
+            student_data = [{'id': s['id'], 'enrollment_no': s['enrollment_no'], 'name': s['name'], 'is_present': s['id'] in present_ids} for s in all_students]
+            return jsonify({"success": True, "students": student_data})
+    finally:
+        if conn: conn.close()
+
+@app.route('/api/manual_mark_attendance', methods=['POST'])
+@controller_required
+def api_manual_mark_attendance():
+    data = request.get_json()
+    session_id, student_id = data.get('session_id'), data.get('student_id')
+    if not all([session_id, student_id]):
+        return jsonify({"success": False, "message": "Missing data."}), 400
+    conn = get_db_connection()
+    if not conn: return jsonify({"success": False, "message": "Database failed."}), 500
+    try:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO attendance_records (session_id, student_id, timestamp, ip_address, accuracy) VALUES (%s, %s, NOW(), 'Manual Override', 0) ON CONFLICT (session_id, student_id) DO NOTHING", (session_id, student_id))
+            conn.commit()
+            if cur.rowcount > 0:
+                return jsonify({"success": True, "message": "Student marked present."})
+            else:
+                return jsonify({"success": False, "message": "Student already marked present."})
+    except (Exception, psycopg2.Error) as e:
+        if conn: conn.rollback()
+        print(f"ERROR in api_manual_mark_attendance: {e}")
+        return jsonify({"success": False, "message": "An error occurred."}), 500
+    finally:
+        if conn: conn.close()
+        
+@app.route('/api/delete_attendance_for_day/<date_str>', methods=['DELETE'])
+@controller_required
+def api_delete_attendance_for_day(date_str):
+    conn = get_db_connection()
+    if not conn: return jsonify({"success": False, "message": "Database connection failed."}), 503
+    try:
+        with conn.cursor() as cur:
+            class_id = get_class_id_by_name(cur)
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            
+            # Find all session IDs for that day
+            cur.execute("SELECT id FROM attendance_sessions WHERE class_id = %s AND DATE(start_time AT TIME ZONE 'UTC') = %s", (class_id, target_date))
+            session_ids = [row[0] for row in cur.fetchall()]
+            
+            if not session_ids:
+                return jsonify({"success": False, "message": "No sessions found for this day."}), 404
+            
+            # Delete attendance records first due to foreign key constraints
+            cur.execute("DELETE FROM attendance_records WHERE session_id = ANY(%s)", (session_ids,))
+            
+            # Then delete the sessions themselves
+            cur.execute("DELETE FROM attendance_sessions WHERE id = ANY(%s)", (session_ids,))
+            
+            conn.commit()
+            return jsonify({"success": True, "message": f"All attendance data for {date_str} has been deleted."})
+    except (Exception, psycopg2.Error) as e:
+        if conn: conn.rollback()
+        print(f"ERROR deleting attendance for day: {e}")
+        return jsonify({"success": False, "message": "A server error occurred during deletion."}), 500
+    finally:
+        if conn: conn.close()
+
 if __name__ == '__main__':
-    # Use environment variables for host, port, and debug settings for production readiness
     app.run(
         host=os.environ.get('FLASK_RUN_HOST', '127.0.0.1'),
         port=int(os.environ.get('PORT', 5000)),

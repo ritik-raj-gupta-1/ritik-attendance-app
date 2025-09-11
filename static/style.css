@@ -187,7 +187,7 @@ body {
 .status-message.info { background-color: var(--info-blue-bg); color: var(--info-blue-text); }
 .status-message.success { background-color: #d4edda; color: #155724; }
 .status-message.warning { background-color: var(--warning-yellow-bg); color: var(--warning-yellow-text); }
-.status-message.error { background-color: #f8d7da; color: #721c24; }
+.status-message.error, .error { background-color: #f8d7da; color: #721c24; }
 
 .info-message {
     background-color: var(--info-blue-bg);
@@ -235,7 +235,64 @@ body {
     font-size: 0.95em;
 }
 
-/* --- 7. Professional Edit Page Toggles --- */
+/* --- 7. Modals --- */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.5);
+}
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 25px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    position: relative;
+}
+.close-btn {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    position: absolute;
+    top: 10px;
+    right: 20px;
+}
+.close-btn:hover, .close-btn:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+#student-list-container {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 15px;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 0;
+}
+.student-manual-entry {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+.student-manual-entry:last-child {
+    border-bottom: none;
+}
+.modal-actions {
+    text-align: right;
+    margin-top: 20px;
+}
+
+/* --- 8. Professional Edit Page Toggles --- */
 .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; }
@@ -245,59 +302,6 @@ input:checked + .slider:before { transform: translateX(26px); }
 .slider.round { border-radius: 34px; }
 .slider.round:before { border-radius: 50%; }
 .data-table td:last-child { text-align: center; }
-
-/* --- 8. Modal for Manual Edit --- */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0,0,0,0.5);
-}
-
-.modal-content {
-    background-color: #fefefe;
-    margin: 15% auto;
-    padding: 20px;
-    border: 1px solid #888;
-    width: 80%;
-    max-width: 500px;
-    border-radius: var(--border-radius);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-}
-
-.close-btn {
-    color: #aaa;
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-}
-
-.close-btn:hover,
-.close-btn:focus {
-    color: black;
-    text-decoration: none;
-    cursor: pointer;
-}
-
-#student-list-container {
-    max-height: 300px;
-    overflow-y: auto;
-    margin-top: 15px;
-    margin-bottom: 15px;
-    border: 1px solid var(--border-color);
-    padding: 10px;
-    border-radius: var(--border-radius);
-}
-
-.student-checkbox-item {
-    display: block;
-    margin-bottom: 10px;
-}
 
 /* --- 9. Responsive Design --- */
 @media (max-width: 768px) {
@@ -313,6 +317,7 @@ input:checked + .slider:before { transform: translateX(26px); }
     }
     .modal-content {
         width: 95%;
-        margin: 20% auto;
+        margin: 25% auto;
     }
 }
+

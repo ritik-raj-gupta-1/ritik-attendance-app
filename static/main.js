@@ -4,35 +4,21 @@
  */
 
 // =============================================================================
-// === UTILITY & HELPER FUNCTIONS (MOVED TO TOP FOR GLOBAL ACCESS) ============
+// === UTILITY & HELPER FUNCTIONS ============================================
 // =============================================================================
 
-/**
- * Displays a temporary status message to the user.
- * @param {string} message The message to display.
- * @param {string} type The category of the message (e.g., 'success', 'error', 'info').
- */
 function showStatusMessage(message, type) {
     const statusDiv = document.getElementById('status-message');
     if (statusDiv) {
         statusDiv.textContent = message;
         statusDiv.className = `status-message ${type}`;
         statusDiv.style.display = 'block';
-
-        setTimeout(() => {
-            statusDiv.style.display = 'none';
-        }, 6000);
+        setTimeout(() => { statusDiv.style.display = 'none'; }, 6000);
     }
 }
 
-/**
- * A more robust geolocation function with an accuracy check and retry mechanism.
- * @param {function} successCallback Called with the final position object.
- * @param {function} errorCallback Called with a final error message string.
- */
 function getAccurateLocation(successCallback, errorCallback) {
     showStatusMessage('Getting location...', 'info');
-    
     navigator.geolocation.getCurrentPosition(
         (pos) => {
             if (pos.coords.accuracy < 150) {
@@ -40,7 +26,6 @@ function getAccurateLocation(successCallback, errorCallback) {
                 successCallback(pos);
                 return;
             }
-
             showStatusMessage('Improving location accuracy...', 'info');
             const watchId = navigator.geolocation.watchPosition(
                 (highAccPos) => {
@@ -55,34 +40,26 @@ function getAccurateLocation(successCallback, errorCallback) {
                 { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
             );
         },
-        (err) => {
-            errorCallback('Could not get location. Error: ' + err.message);
-        },
+        (err) => { errorCallback('Could not get location. Error: ' + err.message); },
         { enableHighAccuracy: false, timeout: 5000 }
     );
 }
 
-/**
- * Fetches the list of present students and updates the UI.
- * @param {number} sessionId The ID of the active session.
- * @param {HTMLElement} listElement The <ul> element to populate.
- */
 async function fetchPresentStudents(sessionId, listElement) {
     if (!listElement) return;
     try {
         const response = await fetch(`/api/get_present_students/${sessionId}`);
         const data = await response.json();
         if (data.success && data.students) {
-            listElement.innerHTML = data.students.map(s => `<li>${s.name} (${s.enrollment_no})</li>`).join('');
+            listElement.innerHTML = data.students.length > 0
+                ? data.students.map(s => `<li>${s.name} (${s.enrollment_no})</li>`).join('')
+                : '<li>No students present yet.</li>';
         }
     } catch (error) {
         console.error("Could not fetch present students:", error);
     }
 }
 
-/**
- * Fetches a student's name based on their enrollment number for verification.
- */
 async function fetchStudentName() {
     const enrollmentInput = document.getElementById('enrollment_no');
     const studentNameDisplay = document.getElementById('student-name-display');
@@ -101,41 +78,28 @@ async function fetchStudentName() {
     }
 }
 
-/**
- * A non-drifting timer that calculates remaining time from a fixed endpoint.
- * @param {string} endTimeIsoString The ISO 8601 formatted end time.
- * @param {HTMLElement} timerElement The element to display the countdown in.
- */
 function startRobustTimer(endTimeIsoString, timerElement) {
     if (!endTimeIsoString || !timerElement) return;
     const endTime = new Date(endTimeIsoString).getTime();
-
     const timerInterval = setInterval(() => {
-        const now = new Date().getTime();
-        const remaining = endTime - now;
-
+        const remaining = endTime - new Date().getTime();
         if (remaining <= 0) {
             clearInterval(timerInterval);
             timerElement.textContent = "Session Ended";
-            const markBtn = document.getElementById('mark-btn');
-            if (markBtn) {
-                 markBtn.disabled = true;
-                 markBtn.closest('form').style.display = 'none';
+            if (document.getElementById('mark-btn')) {
+                 window.location.reload();
             }
             return;
         }
-
-        const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+        const minutes = Math.floor(remaining / 60000);
+        const seconds = Math.floor((remaining % 60000) / 1000);
         timerElement.textContent = `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
     }, 1000);
 }
 
 function showTroubleshootingTips(show) {
     const tipsElement = document.getElementById('troubleshooting-tips');
-    if (tipsElement) {
-        tipsElement.style.display = show ? 'block' : 'none';
-    }
+    if (tipsElement) tipsElement.style.display = show ? 'block' : 'none';
 }
 
 function debounce(func, delay) {
@@ -146,36 +110,25 @@ function debounce(func, delay) {
     };
 }
 
-
 // =============================================================================
 // === PAGE INITIALIZERS =======================================================
 // =============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('attendance-form')) {
-        initStudentPage();
-    }
-    if (document.querySelector('#start-session-btn, .end-session-btn')) {
-        initControllerPage();
-    }
-    if (document.getElementById('attendance-table')) {
-        initEditAttendancePage();
-    }
+    if (document.getElementById('attendance-form')) initStudentPage();
+    if (document.querySelector('#start-session-btn, .end-session-btn')) initControllerPage();
+    if (document.getElementById('attendance-table')) initEditAttendancePage();
+    if (document.querySelector('.delete-day-btn')) initReportPage();
 });
 
 function initStudentPage() {
     const attendanceForm = document.getElementById('attendance-form');
     if (!attendanceForm) return;
-
     const markButton = document.getElementById('mark-btn');
     const enrollmentInput = document.getElementById('enrollment_no');
     const timerElement = document.getElementById('timer-student');
     const presentList = document.getElementById('present-students-list');
-
-    if (!window.activeSessionDataStudent || !window.activeSessionDataStudent.id) {
-        if (markButton) markButton.disabled = true;
-        return;
-    }
+    if (!window.activeSessionDataStudent?.id) return;
 
     startRobustTimer(window.activeSessionDataStudent.end_time, timerElement);
     const liveListInterval = setInterval(() => fetchPresentStudents(window.activeSessionDataStudent.id, presentList), 10000);
@@ -193,22 +146,15 @@ function initStudentPage() {
         getAccurateLocation(
             async (position) => {
                 markButton.textContent = 'Submitting...';
-                const { latitude, longitude, accuracy } = position.coords;
-                
                 try {
                     const formData = new URLSearchParams({
                         enrollment_no: enrollmentInput.value.trim().toUpperCase(),
                         session_id: window.activeSessionDataStudent.id,
-                        latitude: latitude,
-                        longitude: longitude,
-                        accuracy: accuracy 
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy 
                     });
-
-                    const response = await fetch('/api/mark_attendance', {
-                        method: 'POST',
-                        body: formData,
-                    });
-
+                    const response = await fetch('/api/mark_attendance', { method: 'POST', body: formData });
                     const result = await response.json();
                     showStatusMessage(result.message, result.category);
 
@@ -219,9 +165,7 @@ function initStudentPage() {
                     } else {
                         markButton.disabled = false;
                         markButton.textContent = 'Mark My Attendance';
-                        if (result.message.includes("away")) {
-                             showTroubleshootingTips(true);
-                        }
+                        if (result.message.includes("away")) showTroubleshootingTips(true);
                     }
                 } catch (error) {
                     showStatusMessage('A network error occurred. Please try again.', 'error');
@@ -243,39 +187,32 @@ function initControllerPage() {
     const startButton = document.getElementById('start-session-btn');
     const endButton = document.querySelector('.end-session-btn');
     const timerElement = document.getElementById(`timer-${window.activeSessionData?.id}`);
-
-    // Manual Edit Modal Elements
     const manualEditBtn = document.getElementById('manual-edit-btn');
     const modal = document.getElementById('manual-edit-modal');
     const closeBtn = document.querySelector('.close-btn');
-    const submitManualBtn = document.getElementById('submit-manual-attendance');
-    const studentListContainer = document.getElementById('student-list-container');
 
     if (window.activeSessionData?.end_time && timerElement) {
         startRobustTimer(window.activeSessionData.end_time, timerElement);
     }
 
     if (startButton) {
-        startButton.addEventListener('click', async () => {
+        startButton.addEventListener('click', () => {
             startButton.disabled = true;
             startButton.textContent = 'Getting Location...';
             showStatusMessage('Getting your location to start the session.', 'info');
-
             getAccurateLocation(
                 async (position) => {
                     startButton.textContent = 'Starting Session...';
-                    const { latitude, longitude } = position.coords;
                     try {
                         const response = await fetch('/api/start_session', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ latitude, longitude }),
+                            body: JSON.stringify({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
                         });
                         const result = await response.json();
                         showStatusMessage(result.message, result.category);
-                        if (result.success) {
-                            setTimeout(() => window.location.reload(), 1500);
-                        } else {
+                        if (result.success) setTimeout(() => window.location.reload(), 1500);
+                        else {
                             startButton.disabled = false;
                             startButton.textContent = 'Start New Session';
                         }
@@ -294,7 +231,7 @@ function initControllerPage() {
         });
     }
     
-    if(endButton) {
+    if (endButton) {
         endButton.addEventListener('click', async function() {
             this.disabled = true;
             const sessionId = this.dataset.sessionId;
@@ -305,66 +242,53 @@ function initControllerPage() {
         });
     }
 
-    if (manualEditBtn) {
+    if (manualEditBtn && modal && closeBtn) {
         manualEditBtn.addEventListener('click', async () => {
+            const sessionId = manualEditBtn.dataset.sessionId;
+            const container = document.getElementById('student-list-container');
+            container.innerHTML = '<p>Loading students...</p>';
             modal.style.display = 'block';
+
             try {
-                const response = await fetch('/api/get_all_students');
+                const response = await fetch(`/api/get_students_for_manual_edit/${sessionId}`);
                 const data = await response.json();
                 if (data.success) {
-                    studentListContainer.innerHTML = '';
-                    data.students.forEach(student => {
-                        const label = document.createElement('label');
-                        label.className = 'student-checkbox-item';
-                        const checkbox = document.createElement('input');
-                        checkbox.type = 'checkbox';
-                        checkbox.value = student.id;
-                        checkbox.id = `student-${student.id}`;
-                        label.appendChild(checkbox);
-                        label.append(` ${student.name} (${student.enrollment_no})`);
-                        studentListContainer.appendChild(label);
-                    });
+                    container.innerHTML = data.students.map(s => `
+                        <div class="student-manual-entry">
+                            <label>
+                                <input type="checkbox" class="manual-student-toggle" data-student-id="${s.id}" ${s.is_present ? 'checked' : ''}>
+                                ${s.name} (${s.enrollment_no})
+                            </label>
+                        </div>
+                    `).join('');
                 } else {
-                    studentListContainer.innerHTML = `<p class="error">${data.message}</p>`;
+                    container.innerHTML = `<p class="error">${data.message}</p>`;
                 }
             } catch {
-                studentListContainer.innerHTML = `<p class="error">Failed to load students.</p>`;
+                container.innerHTML = `<p class="error">Failed to load student list.</p>`;
             }
         });
-    }
 
-    if (closeBtn) {
-        closeBtn.onclick = () => { modal.style.display = 'none'; };
-    }
-
-    window.onclick = (event) => {
-        if (event.target == modal) {
-            modal.style.display = 'none';
-        }
-    };
-
-    if (submitManualBtn) {
-        submitManualBtn.addEventListener('click', async () => {
-            const selectedStudentIds = Array.from(studentListContainer.querySelectorAll('input:checked')).map(cb => cb.value);
+        closeBtn.addEventListener('click', () => { modal.style.display = 'none'; });
+        window.addEventListener('click', (event) => { if (event.target == modal) modal.style.display = 'none'; });
+        
+        document.getElementById('submit-manual-attendance').addEventListener('click', async () => {
             const sessionId = manualEditBtn.dataset.sessionId;
-
-            try {
-                const response = await fetch('/api/manual_attendance', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        session_id: sessionId,
-                        student_ids: selectedStudentIds
-                    })
-                });
-                const result = await response.json();
-                showStatusMessage(result.message, result.success ? 'success' : 'error');
-                if (result.success) {
-                    modal.style.display = 'none';
-                }
-            } catch {
-                showStatusMessage('Network error. Could not submit.', 'error');
+            const toggles = document.querySelectorAll('.manual-student-toggle:checked');
+            let successCount = 0;
+            for (const toggle of toggles) {
+                try {
+                    const response = await fetch('/api/manual_mark_attendance', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: sessionId, student_id: toggle.dataset.studentId })
+                    });
+                    const result = await response.json();
+                    if(result.success) successCount++;
+                } catch {}
             }
+            showStatusMessage(`${successCount} students marked present manually.`, 'success');
+            modal.style.display = 'none';
         });
     }
 }
@@ -390,8 +314,7 @@ function initEditAttendancePage() {
                                     <span class="slider round"></span>
                                 </label>
                             </td>
-                        </tr>
-                    `;
+                        </tr>`;
                     tbody.insertAdjacentHTML('beforeend', row);
                 });
 
@@ -422,3 +345,51 @@ function initEditAttendancePage() {
             }
         });
 }
+
+function initReportPage() {
+    const modal = document.getElementById('confirmation-modal');
+    const confirmBtn = document.getElementById('confirm-delete-btn');
+    const cancelBtn = document.getElementById('cancel-delete-btn');
+    const modalDateDisplay = document.getElementById('modal-date-display');
+    let dateToDelete = null;
+
+    document.querySelectorAll('.delete-day-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            dateToDelete = this.dataset.date;
+            modalDateDisplay.textContent = dateToDelete;
+            modal.style.display = 'block';
+        });
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+        dateToDelete = null;
+    });
+
+    confirmBtn.addEventListener('click', async () => {
+        if (!dateToDelete) return;
+        confirmBtn.disabled = true;
+        
+        try {
+            const response = await fetch(`/api/delete_attendance_for_day/${dateToDelete}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+            showStatusMessage(result.message, result.success ? 'success' : 'error');
+            if (result.success) {
+                document.getElementById(`row-${dateToDelete}`).remove();
+            }
+        } catch {
+            showStatusMessage('A network error occurred.', 'error');
+        } finally {
+            modal.style.display = 'none';
+            confirmBtn.disabled = false;
+            dateToDelete = null;
+        }
+    });
+    
+    window.addEventListener('click', (event) => {
+        if (event.target == modal) modal.style.display = 'none';
+    });
+}
+

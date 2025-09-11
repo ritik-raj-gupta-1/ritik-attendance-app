@@ -21,7 +21,7 @@
             text-align: left; 
             position: sticky;
             left: 0;
-            background-color: #f8f9fa; /* Light grey to distinguish from other cells */
+            background-color: #f8f9fa;
             z-index: 1;
         }
         .data-table th {
@@ -29,16 +29,21 @@
         }
         .status-present { color: #28a745; font-weight: bold; }
         .status-absent { color: #dc3545; font-weight: bold; }
-        .edit-day-btn { 
-            background-color: #007bff; 
+        .action-btn { 
             color: white; 
             text-decoration: none; 
             display: inline-block; 
             padding: 5px 10px; 
             border-radius: 5px; 
-            font-size: 0.9em; 
+            font-size: 0.9em;
+            margin: 2px;
+            border: none; /* Ensure buttons look consistent */
+            cursor: pointer;
         }
+        .edit-day-btn { background-color: #007bff; }
         .edit-day-btn:hover { background-color: #0056b3; }
+        .delete-day-btn { background-color: #dc3545; }
+        .delete-day-btn:hover { background-color: #c82333; }
     </style>
 </head>
 <body>
@@ -46,18 +51,13 @@
         <div class="header">
             <h2>Daily Attendance Report</h2>
             <p>{{ class_name }}</p>
-            <a href="{{ url_for('controller_dashboard') }}" class="back-link button">Back to Dashboard</a>
+            <div style="margin-top: 15px;">
+                <a href="{{ url_for('controller_dashboard') }}" class="back-link button">Back to Dashboard</a>
+                <a href="{{ url_for('export_csv') }}" class="button" style="background-color: #28a745;">Export as CSV</a>
+            </div>
         </div>
         
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <ul class="flashes">
-                    {% for category, message in messages %}
-                        <li class="{{ category }}">{{ message }}</li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
-        {% endwith %}
+        <div id="status-message" class="status-message" style="display: none;"></div>
 
         <div class="dashboard-content">
             {% if report_data %}
@@ -65,35 +65,24 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <!-- Header for the Date column -->
                             <th style="text-align:left;">Date</th>
-                            
-                            <!-- Dynamically create a header for each student -->
                             {% for student in students %}
                             <th>{{ student.name }}<br><small>({{ student.enrollment_no }})</small></th>
                             {% endfor %}
-
-                            <!-- Header for the Actions column -->
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Loop through each day in the report -->
                         {% for daily_entry in report_data %}
-                        <tr>
-                            <!-- Display the date for this row -->
+                        <tr id="row-{{ daily_entry.date }}">
                             <td style="font-weight:bold; text-align:left;">{{ daily_entry.date }}</td>
-                            
-                            <!-- Loop through each student's status for that day -->
                             {% for student_status in daily_entry.students %}
                             <td class="status-{{ student_status.status | lower }}">{{ student_status.status }}</td>
                             {% endfor %}
-
-                            <!-- Actions cell with the conditional Edit button -->
                             <td>
-                                <!-- THE FIX IS HERE: This now uses the correct route name -->
                                 {% if daily_entry.is_editable %}
-                                <a href="{{ url_for('edit_attendance_for_day', date_str=daily_entry.date) }}" class="edit-day-btn">Edit</a>
+                                <a href="{{ url_for('edit_attendance_for_day', date_str=daily_entry.date) }}" class="action-btn edit-day-btn">Edit</a>
+                                <button type="button" class="action-btn delete-day-btn" data-date="{{ daily_entry.date }}">Delete</button>
                                 {% endif %}
                             </td>
                         </tr>
@@ -108,6 +97,19 @@
             {% endif %}
         </div>
     </div>
+    
+    <!-- Confirmation Modal for Deletion -->
+    <div id="confirmation-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3>Confirm Deletion</h3>
+            <p>Are you sure you want to delete all attendance records for <strong id="modal-date-display"></strong>? This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button id="confirm-delete-btn" class="button" style="background-color: #dc3545;">Yes, Delete</button>
+                <button id="cancel-delete-btn" class="button">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>
 
