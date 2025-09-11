@@ -1,3 +1,4 @@
+```html:NEW - Edit with Toggles Page:templates/edit_attendance_for_day.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,13 +6,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Attendance</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; }
+        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; }
+        input:checked + .slider { background-color: #28a745; }
+        input:checked + .slider:before { transform: translateX(26px); }
+        .slider.round { border-radius: 34px; }
+        .slider.round:before { border-radius: 50%; }
+        .data-table td:last-child { text-align: center; }
+    </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h2>Edit Attendance for {{ attendance_date }}</h2>
             <p>Class: {{ class_name }}</p>
-            <a href="{{ url_for('attendance_report') }}" class="back-link button">Back to Report</a>
+            <a href="{{ url_for('edit_attendance_days') }}" class="back-link button">Back to Day Selection</a>
         </div>
 
         <div id="status-message" class="status-message" style="display: none;"></div>
@@ -20,8 +32,8 @@
             <table id="attendance-table" class="data-table" data-attendance-date="{{ attendance_date }}">
                 <thead>
                     <tr>
-                        <th>Enrollment No.</th>
-                        <th>Student Name</th>
+                        <th style="text-align:left;">Enrollment No.</th>
+                        <th style="text-align:left;">Student Name</th>
                         <th>Present</th>
                     </tr>
                 </thead>
@@ -34,4 +46,4 @@
     <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>
-
+```eof

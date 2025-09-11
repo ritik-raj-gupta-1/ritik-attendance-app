@@ -1,66 +1,120 @@
-/* General Body and Container Styles */
+/* --- MODERN MINIMALIST AESTHETIC --- */
+/* Designed for clarity, professionalism, and a great user experience on all devices. */
+
+/* --- 1. Global Styles & Typography --- */
+:root {
+    --primary-blue: #007bff;
+    --primary-blue-dark: #0056b3;
+    --gray-background: #f8f9fa;
+    --border-color: #dee2e6;
+    --text-color: #212529;
+    --text-muted: #6c757d;
+    --success-green: #28a745;
+    --error-red: #dc3545;
+    --warning-yellow-bg: #fff3cd;
+    --warning-yellow-text: #856404;
+    --info-blue-bg: #d1ecf1;
+    --info-blue-text: #0c5460;
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --border-radius: 8px;
+}
+
 body {
-    font-family: Arial, sans-serif;
+    font-family: var(--font-family);
     margin: 0;
-    padding: 0;
-    background-color: #f4f7f6;
-    color: #333;
+    padding: 20px;
+    background-color: var(--gray-background);
+    color: var(--text-color);
     line-height: 1.6;
 }
 
 .container {
-    max-width: 960px;
-    margin: 20px auto;
-    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 30px;
     background-color: #ffffff;
-    border-radius: 10px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
 }
 
-/* Header Styles */
+/* --- 2. Header & Core Layout --- */
 .header {
     text-align: center;
     margin-bottom: 30px;
     padding-bottom: 20px;
-    border-bottom: 2px solid #eee;
+    border-bottom: 1px solid var(--border-color);
     position: relative;
 }
 
 .header h2 {
-    color: #0056b3;
-    margin-bottom: 10px;
+    color: var(--text-color);
+    margin-bottom: 5px;
+    font-size: 1.8em;
+    font-weight: 600;
 }
 
 .header p {
-    color: #555;
+    color: var(--text-muted);
     font-size: 1.1em;
+    margin-top: 5px;
 }
 
-/* Button Styles (Simple and Solid) */
+.dashboard-content {
+    margin-top: 20px;
+}
+
+.section-card {
+    background-color: #fff;
+    padding: 25px;
+    border-radius: var(--border-radius);
+    margin-bottom: 25px;
+    border: 1px solid var(--border-color);
+}
+
+.section-card h3 {
+    color: var(--primary-blue-dark);
+    margin-top: 0;
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    font-weight: 600;
+}
+
+/* --- 3. Buttons & Links --- */
 .button {
     display: inline-block;
-    padding: 10px 20px;
+    padding: 12px 24px;
     margin: 5px;
     font-size: 1em;
+    font-weight: 600;
     color: white;
-    background-color: #007bff; /* Primary blue */
+    background-color: var(--primary-blue);
     border: none;
-    border-radius: 5px;
+    border-radius: var(--border-radius);
     cursor: pointer;
     text-decoration: none;
     text-align: center;
-    transition: background-color 0.2s ease; /* Smooth hover effect */
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Subtle shadow */
+    transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
 .button:hover {
-    background-color: #0056b3; /* Darker blue on hover */
+    background-color: var(--primary-blue-dark);
+}
+
+.button:active {
+    transform: scale(0.98);
+}
+
+.button:disabled {
+    background-color: #a0c7e4;
+    cursor: not-allowed;
 }
 
 .button.logout-button {
-    background-color: #6c757d; /* Grey for logout */
+    background-color: var(--text-muted);
     position: absolute;
-    top: 0;
+    top: -10px;
     right: 0;
     padding: 8px 15px;
     font-size: 0.9em;
@@ -70,189 +124,139 @@ body {
     background-color: #5a6268;
 }
 
+.button.end-session-btn {
+    background-color: var(--error-red);
+}
+
+.button.end-session-btn:hover {
+    background-color: #b21f2d;
+}
+
 .back-link {
-    background-color: #6c757d;
-    margin-top: 20px;
+    background-color: var(--text-muted);
 }
 
-.back-link:hover {
-    background-color: #5a6268;
-}
-
-/* Form Styles */
+/* --- 4. Forms & Inputs --- */
 .login-form, .attendance-form {
-    background-color: #f9f9f9;
-    padding: 25px;
-    border-radius: 8px;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+    padding: 10px;
 }
 
 .form-group {
-    margin-bottom: 15px;
+    margin-bottom: 20px;
 }
 
 .form-group label {
     display: block;
     margin-bottom: 8px;
-    font-weight: bold;
-    color: #333;
+    font-weight: 600;
+    color: var(--text-color);
 }
 
 .form-group input[type="text"],
 .form-group input[type="password"] {
-    width: calc(100% - 22px); /* Account for padding and border */
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
     font-size: 1em;
-    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    box-sizing: border-box;
 }
 
-/* Flash Messages */
-.flashes {
-    list-style: none;
-    padding: 0;
-    margin: 20px 0;
-    text-align: center;
+.form-group input:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
 }
 
-.flashes li {
-    padding: 10px 15px;
-    margin-bottom: 10px;
-    border-radius: 5px;
+.student-name-display {
+    margin-top: 10px;
     font-weight: bold;
-    color: white;
+    height: 20px;
+    transition: color 0.3s;
 }
 
-.flashes .success {
-    background-color: #28a745; /* Green */
+/* --- 5. Status & Info Messages --- */
+.status-message {
+    margin: 20px 0;
+    padding: 15px;
+    border-radius: var(--border-radius);
+    font-weight: 600;
+    text-align: center;
+    display: none; /* Hidden by default */
 }
-
-.flashes .danger, .flashes .error {
-    background-color: #dc3545; /* Red */
-}
-
-.flashes .warning {
-    background-color: #ffc107; /* Yellow */
-    color: #333;
-}
-
-.flashes .info {
-    background-color: #17a2b8; /* Blue-green */
-}
-
-/* Dashboard Content Sections */
-.dashboard-content {
-    margin-top: 30px;
-}
-
-.section-card {
-    background-color: #f9f9f9;
-    padding: 25px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.section-card h3 {
-    color: #0056b3;
-    margin-top: 0;
-    margin-bottom: 15px;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 10px;
-}
-
-.section-card p {
-    margin-bottom: 15px;
-}
+.status-message.info { background-color: var(--info-blue-bg); color: var(--info-blue-text); }
+.status-message.success { background-color: #d4edda; color: #155724; }
+.status-message.warning { background-color: var(--warning-yellow-bg); color: var(--warning-yellow-text); }
+.status-message.error { background-color: #f8d7da; color: #721c24; }
 
 .info-message {
-    background-color: #e0f7fa;
-    color: #00796b;
+    background-color: var(--info-blue-bg);
+    color: var(--info-blue-text);
     padding: 15px;
-    border-radius: 8px;
+    border-radius: var(--border-radius);
     text-align: center;
     margin-top: 20px;
-    border: 1px solid #b2ebf2;
 }
 
-/* Table Styles */
+/* --- 6. Tables & Lists --- */
 .data-table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
-
-.data-table th,
-.data-table td {
-    border: 1px solid #e0e0e0;
+.data-table th, .data-table td {
+    border: 1px solid var(--border-color);
     padding: 12px 15px;
     text-align: left;
 }
-
 .data-table th {
-    background-color: #f2f2f2;
-    font-weight: bold;
-    color: #333;
-    text-transform: uppercase;
+    background-color: var(--gray-background);
+    font-weight: 600;
     font-size: 0.9em;
+    text-transform: uppercase;
+}
+.data-table tr:nth-child(even) { background-color: #fff; }
+.data-table tr:hover { background-color: #f1f1f1; }
+
+.live-attendance-section, .final-attendance-list {
+    margin-top: 30px;
+    padding: 20px;
+    background-color: var(--gray-background);
+    border-radius: var(--border-radius);
+}
+.live-attendance-section ul, .final-attendance-list ul {
+    list-style-type: none;
+    padding-left: 0;
+    column-count: 2;
+}
+.live-attendance-section ul li, .final-attendance-list ul li {
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    font-size: 0.95em;
 }
 
-.data-table tr:nth-child(even) {
-    background-color: #f8f8f8;
-}
+/* --- 7. Professional Edit Page Toggles --- */
+.switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; }
+.slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+input:checked + .slider { background-color: var(--success-green); }
+input:checked + .slider:before { transform: translateX(26px); }
+.slider.round { border-radius: 34px; }
+.slider.round:before { border-radius: 50%; }
+.data-table td:last-child { text-align: center; }
 
-.data-table tr:hover {
-    background-color: #f0f0f0;
-}
-
-/* Responsive adjustments */
+/* --- 8. Responsive Design --- */
 @media (max-width: 768px) {
-    .container {
-        margin: 10px;
-        padding: 15px;
-    }
-
-    .header .button.logout-button {
+    body { padding: 10px; }
+    .container { padding: 20px; }
+    .button.logout-button {
         position: static;
         display: block;
-        margin-top: 10px;
-        width: auto;
+        margin: 15px auto 0;
     }
-
-    .form-group input[type="text"],
-    .form-group input[type="password"] {
-        width: calc(100% - 20px);
+    .live-attendance-section ul, .final-attendance-list ul {
+        column-count: 1;
     }
 }
 
-/* Global status message styling */
-.status-message {
-    margin-top: 15px;
-    padding: 10px;
-    border-radius: 4px;
-    font-weight: bold;
-    display: none; /* Hidden by default, shown by JS */
-    text-align: center;
-}
-.status-message.info {
-    background-color: #d1ecf1;
-    color: #0c5460;
-    border: 1px solid #bee5eb;
-}
-.status-message.success {
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-}
-.status-message.warning {
-    background-color: #fff3cd;
-    color: #856404;
-    border: 1px solid #ffeeba;
-}
-.status-message.error {
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-}
