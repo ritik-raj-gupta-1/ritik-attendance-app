@@ -155,7 +155,6 @@ document.addEventListener('DOMContentLoaded', () => {
         initStudentPage();
     }
     if (document.querySelector('.dashboard-content')) {
-        // This will run on both dashboard and report pages if they share this class
         initControllerPage(); 
     }
     if (document.getElementById('attendance-table')) {
@@ -303,14 +302,15 @@ function initControllerPage() {
     }
 
     if(manualEditBtn && manualEditModal) {
-        const closeButton = manualEditModal.querySelector('.close-button');
+        const closeButton = manualEditModal.querySelector('.close-btn'); // FIX: Corrected selector
         const studentListContainer = manualEditModal.querySelector('.manual-student-list');
 
         manualEditBtn.addEventListener('click', async () => {
             const sessionId = manualEditBtn.dataset.sessionId;
+            if (!studentListContainer) return; // Safety check
+
             studentListContainer.innerHTML = '<p>Loading students...</p>';
             manualEditModal.style.display = 'block';
-            // FIX: Add class to body to prevent background scrolling
             document.body.classList.add('modal-open');
 
             const response = await fetch(`/api/get_students_for_manual_edit/${sessionId}`);
@@ -361,11 +361,10 @@ function initControllerPage() {
 
         const closeModal = () => {
             manualEditModal.style.display = 'none';
-            // FIX: Remove class from body to re-enable scrolling
             document.body.classList.remove('modal-open');
         };
 
-        closeButton.addEventListener('click', closeModal);
+        if (closeButton) closeButton.addEventListener('click', closeModal);
         window.addEventListener('click', (event) => {
             if (event.target == manualEditModal) {
                 closeModal();
@@ -375,10 +374,10 @@ function initControllerPage() {
 }
 
 function initReportPage() {
-    const deleteModal = document.getElementById('delete-confirmation-modal');
+    const deleteModal = document.getElementById('confirmation-modal'); // FIX: Corrected modal ID
     if(!deleteModal) return;
 
-    const closeButton = deleteModal.querySelector('.close-button');
+    const modalDateDisplay = document.getElementById('modal-date-display');
     const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
     const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
     let dateToDelete = null;
@@ -386,6 +385,7 @@ function initReportPage() {
     document.querySelectorAll('.delete-day-btn').forEach(button => {
         button.addEventListener('click', (e) => {
             dateToDelete = e.target.dataset.date;
+            if(modalDateDisplay) modalDateDisplay.textContent = dateToDelete;
             deleteModal.style.display = 'block';
             document.body.classList.add('modal-open');
         });
@@ -396,30 +396,36 @@ function initReportPage() {
         document.body.classList.remove('modal-open');
     };
     
-    closeButton.addEventListener('click', closeModal);
-    cancelDeleteBtn.addEventListener('click', closeModal);
+    if (cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', closeModal);
     window.addEventListener('click', (e) => {
         if(e.target == deleteModal) closeModal();
     });
 
-    confirmDeleteBtn.addEventListener('click', async () => {
-        confirmDeleteBtn.disabled = true;
-        confirmDeleteBtn.textContent = 'Deleting...';
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener('click', async () => {
+            if(!dateToDelete) return;
+            confirmDeleteBtn.disabled = true;
+            confirmDeleteBtn.textContent = 'Deleting...';
 
-        const response = await fetch('/api/delete_day_records', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ date: dateToDelete })
-        });
-        const result = await response.json();
-        showStatusMessage(result.message, result.success ? 'success' : 'error');
-        if(result.success){
-            setTimeout(() => window.location.reload(), 2000);
-        } else {
+            // FIX: Corrected fetch method and URL to match API
+            const response = await fetch(`/api/delete_attendance_for_day/${dateToDelete}`, {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+            showStatusMessage(result.message, result.success ? 'success' : 'error');
+            
+            closeModal();
+
+            if(result.success){
+                const rowToDelete = document.getElementById(`row-${dateToDelete}`);
+                if(rowToDelete) rowToDelete.remove();
+            } 
+            
             confirmDeleteBtn.disabled = false;
-            confirmDeleteBtn.textContent = 'Confirm Delete';
-        }
-    });
+            confirmDeleteBtn.textContent = 'Yes, Delete';
+        });
+    }
 }
 
 function initEditAttendancePage() {
@@ -477,4 +483,3 @@ function initEditAttendancePage() {
             }
         });
 }
-

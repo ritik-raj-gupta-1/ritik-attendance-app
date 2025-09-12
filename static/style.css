@@ -117,14 +117,24 @@ body.modal-open {
 .report-table-container { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
 .data-table th, .data-table td { border: 1px solid var(--border-color); padding: 12px 15px; text-align: left; }
-/* FIX: Increased contrast for header text and date column. */
 .data-table th { background-color: #2a2a2a; color: #ffffff; font-weight: 600; text-transform: uppercase; text-align: center; }
 .data-table td:first-child { font-weight: 600; } /* Make date bold */
 .data-table th:first-child, .data-table td:first-child { text-align: left; position: sticky; left: 0; background-color: #2a2a2a; z-index: 1; color: #ffffff; }
-.data-table th small { color: #d0d0d0; } /* Brighter color for enrollment no. */
+.data-table th small { color: #ffffff; } /* FIX: Brighter color for enrollment no. */
 .status-present { color: var(--success-text); font-weight: bold; }
 .status-absent { color: var(--danger-red); }
-.edit-day-btn { background-color: var(--primary-blue); color: white; text-decoration: none; display: inline-block; padding: 5px 10px; border-radius: 5px; font-size: 0.9em; }
+.action-btn { 
+    color: white; 
+    text-decoration: none; 
+    display: inline-block; 
+    padding: 5px 10px; 
+    border-radius: 5px; 
+    font-size: 0.9em;
+    margin: 2px;
+    border: none; /* Ensure buttons look consistent */
+    cursor: pointer;
+}
+.edit-day-btn { background-color: var(--primary-blue); }
 .edit-day-btn:hover { background-color: var(--primary-blue-dark); }
 .delete-day-btn { background-color: var(--danger-red); }
 .delete-day-btn:hover { background-color: var(--danger-red-dark); }
@@ -141,8 +151,8 @@ input:checked + .slider:before { transform: translateX(26px); }
 /* --- 9. Modal Styles --- */
 .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(5px); }
 .modal-content { background-color: var(--container-bg); margin: 15% auto; padding: 25px; border: 1px solid var(--border-color); width: 80%; max-width: 500px; border-radius: var(--border-radius); box-shadow: var(--box-shadow); position: relative; }
-.close-button { position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; color: var(--text-muted); cursor: pointer; transition: color 0.2s ease; }
-.close-button:hover { color: var(--text-color); }
+.close-btn { position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; color: var(--text-muted); cursor: pointer; transition: color 0.2s ease; }
+.close-btn:hover { color: var(--text-color); }
 .manual-student-list { max-height: 40vh; overflow-y: auto; margin-top: 15px; padding-right: 10px; }
 .manual-student-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); }
 .manual-student-item:last-child { border-bottom: none; }
@@ -172,4 +182,3 @@ input:checked + .slider:before { transform: translateX(26px); }
     .button.logout-button { position: static; display: block; margin: 15px auto 0; }
     .modal-content { width: 95%; margin: 25% auto; }
 }
-
