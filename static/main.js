@@ -302,12 +302,17 @@ function initControllerPage() {
     }
 
     if(manualEditBtn && manualEditModal) {
-        const closeButton = manualEditModal.querySelector('.close-btn'); // FIX: Corrected selector
+        // FIX: Corrected selector to '.close-btn'
+        const closeButton = manualEditModal.querySelector('.close-btn'); 
+        // FIX: Corrected selector to find the container with the right class
         const studentListContainer = manualEditModal.querySelector('.manual-student-list');
 
         manualEditBtn.addEventListener('click', async () => {
             const sessionId = manualEditBtn.dataset.sessionId;
-            if (!studentListContainer) return; // Safety check
+            if (!studentListContainer) {
+                console.error("Fatal: Student list container not found in modal.");
+                return;
+            }
 
             studentListContainer.innerHTML = '<p>Loading students...</p>';
             manualEditModal.style.display = 'block';
@@ -374,7 +379,7 @@ function initControllerPage() {
 }
 
 function initReportPage() {
-    const deleteModal = document.getElementById('confirmation-modal'); // FIX: Corrected modal ID
+    const deleteModal = document.getElementById('confirmation-modal');
     if(!deleteModal) return;
 
     const modalDateDisplay = document.getElementById('modal-date-display');
@@ -407,7 +412,6 @@ function initReportPage() {
             confirmDeleteBtn.disabled = true;
             confirmDeleteBtn.textContent = 'Deleting...';
 
-            // FIX: Corrected fetch method and URL to match API
             const response = await fetch(`/api/delete_attendance_for_day/${dateToDelete}`, {
                 method: 'DELETE'
             });
@@ -483,3 +487,4 @@ function initEditAttendancePage() {
             }
         });
 }
+

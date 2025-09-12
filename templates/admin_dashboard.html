@@ -31,9 +31,10 @@
             </div>
 
             <div class="section-card">
-                <h3>Attendance Reports & Management</h3>
-                <p>View comprehensive attendance records and manage daily data.</p>
+                <h3>Data & Reports</h3>
+                <p>View daily records, export data, or make corrections to past attendance.</p>
                 <a href="{{ url_for('attendance_report') }}" class="button">View Daily Attendance Report</a>
+                <a href="{{ url_for('edit_attendance_days') }}" class="button" style="background-color: #ffc107; color: #121212;">Edit Past Attendance</a>
             </div>
         </div>
     </div>
@@ -44,7 +45,8 @@
             <span class="close-btn">&times;</span>
             <h3>Manual Attendance Entry</h3>
             <p>Select students to mark as present for this session.</p>
-            <div id="student-list-container">
+            <!-- FIX: Added the 'manual-student-list' class here -->
+            <div id="student-list-container" class="manual-student-list">
                 <!-- Student list will be loaded here by JavaScript -->
             </div>
             <div class="modal-actions">

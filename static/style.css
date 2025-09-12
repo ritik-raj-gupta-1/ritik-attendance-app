@@ -39,7 +39,6 @@ body {
     position: relative;
 }
 
-/* FIX: This class is toggled by JS to prevent background scrolling when a modal is open. */
 body.modal-open {
     overflow: hidden;
 }
@@ -117,10 +116,13 @@ body.modal-open {
 .report-table-container { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
 .data-table th, .data-table td { border: 1px solid var(--border-color); padding: 12px 15px; text-align: left; }
-.data-table th { background-color: #2a2a2a; color: #ffffff; font-weight: 600; text-transform: uppercase; text-align: center; }
-.data-table td:first-child { font-weight: 600; } /* Make date bold */
+/* FIX: Changed color to red as requested */
+.data-table th { background-color: #2a2a2a; color: var(--danger-red); font-weight: 600; text-transform: uppercase; text-align: center; }
+.data-table td:first-child { font-weight: 600; } 
+/* FIX: Keep the date header white for contrast */
 .data-table th:first-child, .data-table td:first-child { text-align: left; position: sticky; left: 0; background-color: #2a2a2a; z-index: 1; color: #ffffff; }
-.data-table th small { color: #ffffff; } /* FIX: Brighter color for enrollment no. */
+/* FIX: Changed color to red to match the name */
+.data-table th small { color: var(--danger-red); } 
 .status-present { color: var(--success-text); font-weight: bold; }
 .status-absent { color: var(--danger-red); }
 .action-btn { 
@@ -131,7 +133,7 @@ body.modal-open {
     border-radius: 5px; 
     font-size: 0.9em;
     margin: 2px;
-    border: none; /* Ensure buttons look consistent */
+    border: none;
     cursor: pointer;
 }
 .edit-day-btn { background-color: var(--primary-blue); }
@@ -182,3 +184,4 @@ input:checked + .slider:before { transform: translateX(26px); }
     .button.logout-button { position: static; display: block; margin: 15px auto 0; }
     .modal-content { width: 95%; margin: 25% auto; }
 }
+
